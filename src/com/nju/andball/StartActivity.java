@@ -2,29 +2,29 @@ package com.nju.andball;
 
 import javax.microedition.khronos.opengles.GL10;
 
-import org.anddev.andengine.engine.Engine;
-import org.anddev.andengine.engine.camera.Camera;
-import org.anddev.andengine.engine.options.EngineOptions;
-import org.anddev.andengine.engine.options.EngineOptions.ScreenOrientation;
-import org.anddev.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
-import org.anddev.andengine.entity.modifier.ScaleAtModifier;
-import org.anddev.andengine.entity.scene.Scene;
-import org.anddev.andengine.entity.scene.menu.MenuScene;
-import org.anddev.andengine.entity.scene.menu.MenuScene.IOnMenuItemClickListener;
-import org.anddev.andengine.entity.scene.menu.item.IMenuItem;
-import org.anddev.andengine.entity.scene.menu.item.SpriteMenuItem;
-import org.anddev.andengine.entity.scene.menu.item.TextMenuItem;
-import org.anddev.andengine.entity.scene.menu.item.decorator.ColorMenuItemDecorator;
-import org.anddev.andengine.entity.scene.menu.item.decorator.ScaleMenuItemDecorator;
-import org.anddev.andengine.entity.sprite.Sprite;
-import org.anddev.andengine.entity.util.FPSLogger;
-import org.anddev.andengine.opengl.font.Font;
-import org.anddev.andengine.opengl.font.FontFactory;
-import org.anddev.andengine.opengl.texture.Texture;
-import org.anddev.andengine.opengl.texture.TextureOptions;
-import org.anddev.andengine.opengl.texture.region.TextureRegion;
-import org.anddev.andengine.opengl.texture.region.TextureRegionFactory;
-import org.anddev.andengine.ui.activity.BaseGameActivity;
+import org.andengine.engine.Engine;
+import org.andengine.engine.camera.Camera;
+import org.andengine.engine.options.EngineOptions;
+import org.andengine.engine.options.ScreenOrientation;
+import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
+import org.andengine.entity.modifier.ScaleAtModifier;
+import org.andengine.entity.scene.Scene;
+import org.andengine.entity.scene.menu.MenuScene;
+import org.andengine.entity.scene.menu.MenuScene.IOnMenuItemClickListener;
+import org.andengine.entity.scene.menu.item.IMenuItem;
+import org.andengine.entity.scene.menu.item.SpriteMenuItem;
+import org.andengine.entity.scene.menu.item.TextMenuItem;
+import org.andengine.entity.scene.menu.item.decorator.ColorMenuItemDecorator;
+import org.andengine.entity.scene.menu.item.decorator.ScaleMenuItemDecorator;
+import org.andengine.entity.sprite.Sprite;
+import org.andengine.entity.util.FPSLogger;
+import org.andengine.opengl.font.Font;
+import org.andengine.opengl.font.FontFactory;
+import org.andengine.opengl.texture.Texture;
+import org.andengine.opengl.texture.TextureOptions;
+import org.andengine.opengl.texture.region.TextureRegion;
+import org.andengine.opengl.texture.region.TextureRegionFactory;
+import org.andengine.ui.activity.BaseGameActivity;
 
 import android.content.Intent;
 import android.graphics.Color;
@@ -55,13 +55,10 @@ public class StartActivity extends BaseGameActivity implements
 	protected Texture mFontTexture;
 	protected Handler mHandler;
 
-	@Override
 	public void onLoadComplete() {
 		// TODO Auto-generated method stub
-
 	}
 
-	@Override
 	public Engine onLoadEngine() {
 		mHandler=new Handler();
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
@@ -72,7 +69,6 @@ public class StartActivity extends BaseGameActivity implements
 				this.mCamera));
 	}
 
-	@Override
 	public void onLoadResources() {
 		// TODO Auto-generated method stub
 		this.mFontTexture = new Texture(256, 256,
@@ -192,9 +188,35 @@ public class StartActivity extends BaseGameActivity implements
 		@Override
 		public void run() {
 			// TODO Auto-generated method stub
-			Intent myIntent = new Intent(StartActivity.this, GameActivity.class);
+			Intent myIntent = new Intent(StartActivity.this, MovingBallExample.class);
     		StartActivity.this.startActivity(myIntent);
 			
 		}
 	};
+
+	@Override
+	public EngineOptions onCreateEngineOptions() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void onCreateResources(OnCreateResourcesCallback arg0)
+			throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onCreateScene(OnCreateSceneCallback arg0) throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onPopulateScene(Scene arg0, OnPopulateSceneCallback arg1)
+			throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
 }
