@@ -22,17 +22,20 @@ import org.andengine.opengl.font.Font;
 import org.andengine.opengl.font.FontFactory;
 import org.andengine.opengl.texture.Texture;
 import org.andengine.opengl.texture.TextureOptions;
+import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
+import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.andengine.opengl.texture.bitmap.BitmapTexture;
 import org.andengine.opengl.texture.region.TextureRegion;
 import org.andengine.opengl.texture.region.TextureRegionFactory;
 import org.andengine.ui.activity.BaseGameActivity;
+import org.andengine.ui.activity.SimpleBaseGameActivity;
 
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Handler;
 import android.widget.Toast;
 
-public class StartActivity extends BaseGameActivity implements
+public class StartActivity extends SimpleBaseGameActivity implements
 		IOnMenuItemClickListener {
 	// 摄像头尺寸
 	private static final int CAMERA_WIDTH = 800;
@@ -45,15 +48,15 @@ public class StartActivity extends BaseGameActivity implements
 	protected static final int MENU_EXIT = MENU_ABOUT + 1;
 	protected Scene mMenuScene;
 
-	private Texture mMenuBGTexture;
+	private BitmapTextureAtlas mMenuBGTexture;
 	private TextureRegion mMenuBGTextureRegion;
 
-	private Texture mExitTexture;
+	private BitmapTextureAtlas mExitTexture;
 	private TextureRegion mExitTextureRegion;
 
 	protected MenuScene mStaticMenuScene;
 	private Font mfont;
-	protected Texture mFontTexture;
+	protected BitmapTextureAtlas mFontTexture;
 	protected Handler mHandler;
 
 	public void onLoadComplete() {
@@ -65,31 +68,33 @@ public class StartActivity extends BaseGameActivity implements
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 
 		// TODO Auto-generated method stub
-		return new Engine(new EngineOptions(true, ScreenOrientation.LANDSCAPE,
+		return new Engine(new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,
 				new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT),
 				this.mCamera));
 	}
 
 	public void onLoadResources() {
 		// TODO Auto-generated method stub
-		this.mFontTexture = new BitmapTexture(this.mEngine.getTextureManager(),256, 256,
+		this.mFontTexture = new BitmapTextureAtlas(this.getTextureManager(),256, 256,
 				TextureOptions.BILINEAR);
 		FontFactory.setAssetBasePath("fonts/");
-		this.mfont = FontFactory.createFromAsset(this.mFontTexture, this,
-				"JOKERMAN.TTF", 50, true, Color.RED);
+		this.mfont = FontFactory.createFromAsset(this.getFontManager(),this.getTextureManager(), 512,512,TextureOptions.BILINEAR,this.getAssets(),
+				"fonts/JOKERMAN.TTF",10,true,Color.RED);
 		this.mEngine.getTextureManager().loadTexture(this.mFontTexture);
 		this.mEngine.getFontManager().loadFont(this.mfont);
 
-		this.mMenuBGTexture = new Texture(2048, 1024,
+		this.mMenuBGTexture = new BitmapTextureAtlas(this.getTextureManager(),2048, 1024,
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA);
-		this.mMenuBGTextureRegion = TextureRegionFactory.createFromAsset(
-				mMenuBGTexture, this, "menu/menu_bg.jpg", 0, 0);
+		this.mMenuBGTextureRegion = BitmapTextureAtlasTextureRegionFactory
+                .createFromAsset(this.mMenuBGTexture, this, "menu/menu_bg.jpg",
+                        0, 0);
+		
 		this.mEngine.getTextureManager().loadTexture(mMenuBGTexture);
 
-		this.mExitTexture = new Texture(256, 256,
+		this.mExitTexture = new BitmapTextureAtlas(this.getTextureManager(),256, 256,
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA);
-		this.mExitTextureRegion = TextureRegionFactory.createFromAsset(
-				mExitTexture, this, "menu/menu_exit.png", 0, 0);
+		this.mExitTextureRegion = BitmapTextureAtlasTextureRegionFactory
+                .createFromAsset(this.mMenuBGTexture, this, "menu/menu_exit.png", 0, 0);
 		this.mEngine.getTextureManager().loadTexture(mExitTexture);
 	}
 
@@ -138,10 +143,10 @@ public class StartActivity extends BaseGameActivity implements
 		// TODO Auto-generated method stub
 		this.mEngine.registerUpdateHandler(new FPSLogger());
 		this.createStaticMenuScene();
-		final int centerX = (CAMERA_WIDTH - this.mMenuBGTextureRegion
-				.getWidth()) / 2;
-		final int centerY = (CAMERA_HEIGHT - this.mMenuBGTextureRegion
-				.getHeight()) / 2;
+		final int centerX = (int) ((CAMERA_WIDTH - this.mMenuBGTextureRegion
+				.getWidth()) / 2);
+		final int centerY = (int) ((CAMERA_HEIGHT - this.mMenuBGTextureRegion
+				.getHeight()) / 2);
 		this.mMenuScene = new Scene(1);
 
 		final Sprite menubg = new Sprite(centerX, centerY, mMenuBGTextureRegion);
@@ -219,5 +224,17 @@ public class StartActivity extends BaseGameActivity implements
 			throws Exception {
 		// TODO Auto-generated method stub
 		
+	}
+
+	@Override
+	protected void onCreateResources() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	protected Scene onCreateScene() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }
