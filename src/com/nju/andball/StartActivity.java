@@ -22,6 +22,7 @@ import org.andengine.opengl.font.Font;
 import org.andengine.opengl.font.FontFactory;
 import org.andengine.opengl.texture.Texture;
 import org.andengine.opengl.texture.TextureOptions;
+import org.andengine.opengl.texture.bitmap.BitmapTexture;
 import org.andengine.opengl.texture.region.TextureRegion;
 import org.andengine.opengl.texture.region.TextureRegionFactory;
 import org.andengine.ui.activity.BaseGameActivity;
@@ -71,8 +72,8 @@ public class StartActivity extends BaseGameActivity implements
 
 	public void onLoadResources() {
 		// TODO Auto-generated method stub
-		this.mFontTexture = new Texture(256, 256,
-				TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+		this.mFontTexture = new BitmapTexture(this.mEngine.getTextureManager(),256, 256,
+				TextureOptions.BILINEAR);
 		FontFactory.setAssetBasePath("fonts/");
 		this.mfont = FontFactory.createFromAsset(this.mFontTexture, this,
 				"JOKERMAN.TTF", 50, true, Color.RED);
