@@ -14,6 +14,7 @@ import org.andengine.engine.handler.physics.PhysicsHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
+import org.andengine.entity.Entity;
 import org.andengine.entity.modifier.RotationModifier;
 import org.andengine.entity.modifier.ScaleModifier;
 import org.andengine.entity.primitive.Rectangle;
@@ -73,6 +74,13 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	private static final FixtureDef FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 0.6f, 0.6f); //密度，弹性系数，摩擦系数
 	private static final FixtureDef WOOD_FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 1.0f, 0.6f);
 
+	private static final int LAYER_COUNT = 3;
+
+	private static final int LAYER_BACKGROUND = 0;
+	private static final int LAYER_SPRITE = LAYER_BACKGROUND + 1;
+	private static final int LAYER_SCORE = LAYER_SPRITE + 1;
+	protected boolean mGameRunning;
+	
 	// ===========================================================
 	// Fields
 	// ===========================================================
@@ -90,6 +98,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 
 	private PhysicsWorld mPhysicsWorld;
 	private Body woodBody;
+	private Body ballBody;
 	private int mScore = 0;
 	private Text mScoreText;
 	private Text mGameOverText;
@@ -152,6 +161,9 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		this.mEngine.registerUpdateHandler(new FPSLogger());
 
 		this.mScene = new Scene();
+		for(int i = 0; i < LAYER_COUNT; i++) {
+			this.mScene.attachChild(new Entity());
+		}
 		this.mScene.setBackground(new Background(0, 0, 0));
 		
 		//创建一个物理世界，重力与地球重力相等
@@ -185,23 +197,23 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		
 		//创建小球
 		final AnimatedSprite face = new AnimatedSprite(CAMERA_WIDTH/2+10, 100, this.mCircleFaceTextureRegion, this.getVertexBufferObjectManager());
-		final Body ballbody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, face, BodyType.DynamicBody, FIXTURE_DEF); 
+		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, face, BodyType.DynamicBody, FIXTURE_DEF); 
 		
 		face.animate(200);
 		
 		//将精灵加入到场景中
-		this.mScene.attachChild(ground);
-		this.mScene.attachChild(roof);
-		this.mScene.attachChild(left);
-		this.mScene.attachChild(right);
-		this.mScene.attachChild(wood);
-		this.mScene.attachChild(face);
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ground);
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(roof);
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(left);
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(right);
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(wood);
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(face);
 
 		//创建刚体与精灵的物理连接件，并允许刚体和物理世界改变精灵位置，两个操控版都是靠改变刚体状态来间接改变精灵状态
 		this.mScene.setTouchAreaBindingOnActionDownEnabled(true);
 		this.mScene.registerUpdateHandler(this.mPhysicsWorld);
 		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(wood, woodBody, true, true));
-		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(face, ballbody, true, true));
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(face, ballBody, true, true));
 		
 		//注册木板与左右边界的碰撞检测，检测到碰撞时反弹木板（KinematicBody与StaticBody不会发生碰撞）
 				mScene.registerUpdateHandler(new IUpdateHandler() {
@@ -221,6 +233,10 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 						if(roof.collidesWith(face) || left.collidesWith(face) || right.collidesWith(face)){
 							mScore += 50;
 							mScoreText.setText("Score: " + mScore);
+						}
+						
+						if(ground.collidesWith(face)){
+							onGameOver();
 						}
 					}
 				});
@@ -280,7 +296,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0", "Score: XXXX".length(), this.getVertexBufferObjectManager());
 		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		this.mScoreText.setAlpha(0.5f);
-		this.mScene.attachChild(this.mScoreText);
+		this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mScoreText);
 		
 		/* The game-over text. */
 		this.mGameOverText = new Text(0, 0, this.mFont, "Game\nOver", new TextOptions(HorizontalAlign.CENTER), this.getVertexBufferObjectManager());
@@ -317,7 +333,10 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	}
 	
 	private void onGameOver() {
-		this.mScene.attachChild(this.mGameOverText);
+//		this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mGameOverText);
+		this.ballBody.setLinearVelocity(0, 0);
+		this.mScoreText.setText("Game Over ! ");
+		this.mGameRunning=false;
 	}
 
 	// ===========================================================
