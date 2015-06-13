@@ -89,6 +89,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	private Scene mScene;
 
 	private PhysicsWorld mPhysicsWorld;
+	private Body woodBody;
 	private int mScore = 0;
 	private Text mScoreText;
 	private Text mGameOverText;
@@ -153,15 +154,17 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		this.mScene = new Scene();
 		this.mScene.setBackground(new Background(0, 0, 0));
 		
-		/* The ScoreText showing how many points the pEntity scored. */
-		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0", "Score: XXXX".length(), this.getVertexBufferObjectManager());
-		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-		this.mScoreText.setAlpha(0.5f);
-		this.mScene.attachChild(this.mScoreText);
-
 		//创建一个物理世界，重力与地球重力相等
 		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
 
+		this.initSprites();
+		this.initOnScreenControls();
+		this.initText();
+		
+		return this.mScene;
+	}
+	
+	private void initSprites(){
 		final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
 		//创建物理世界边界
 		final Rectangle ground = new Rectangle(0, CAMERA_HEIGHT - 2, CAMERA_WIDTH, 2, vertexBufferObjectManager);
@@ -178,7 +181,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		
 		//创建木板
 		final Sprite wood = new Sprite(CAMERA_WIDTH/2, CAMERA_HEIGHT-64, this.mWoodTextureRegion, this.getVertexBufferObjectManager());
-		final Body body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, wood, BodyType.KinematicBody, WOOD_FIXTURE_DEF);	//KinematicBody根据速度进行移动，但不受重力影响
+		woodBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, wood, BodyType.KinematicBody, WOOD_FIXTURE_DEF);	//KinematicBody根据速度进行移动，但不受重力影响
 		
 		//创建小球
 		final AnimatedSprite face = new AnimatedSprite(CAMERA_WIDTH/2+10, 100, this.mCircleFaceTextureRegion, this.getVertexBufferObjectManager());
@@ -197,87 +200,95 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		//创建刚体与精灵的物理连接件，并允许刚体和物理世界改变精灵位置，两个操控版都是靠改变刚体状态来间接改变精灵状态
 		this.mScene.setTouchAreaBindingOnActionDownEnabled(true);
 		this.mScene.registerUpdateHandler(this.mPhysicsWorld);
-		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(wood, body, true, true));
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(wood, woodBody, true, true));
 		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(face, ballbody, true, true));
 		
-		//创建操控版，左操控版控制木板x轴速度，右操控版控制木板旋转的角速度
-		/* Velocity control (left). */
-		final float x1 = 0;
-		final float y1 = CAMERA_HEIGHT - this.mOnScreenControlBaseTextureRegion.getHeight();
-		final AnalogOnScreenControl velocityOnScreenControl = new AnalogOnScreenControl(x1, y1, this.mCamera, this.mOnScreenControlBaseTextureRegion, this.mOnScreenControlKnobTextureRegion, 0.1f, this.getVertexBufferObjectManager(), new IAnalogOnScreenControlListener() {
-			@Override
-			public void onControlChange(final BaseOnScreenControl pBaseOnScreenControl, final float pValueX, final float pValueY) {
-				final Vector2 velocity = Vector2Pool.obtain(pValueX*50, 0);
-				body.setLinearVelocity(velocity);
-				Vector2Pool.recycle(velocity);
-			}
-
-			@Override
-			public void onControlClick(final AnalogOnScreenControl pAnalogOnScreenControl) {
-				/* Nothing. */
-			}
-		});
-		velocityOnScreenControl.getControlBase().setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-		velocityOnScreenControl.getControlBase().setAlpha(0.5f);
-
-		this.mScene.setChildScene(velocityOnScreenControl);
-
-
-		/* Rotation control (right). */
-		final float y2 = (this.mPlaceOnScreenControlsAtDifferentVerticalLocations) ? 0 : y1;
-		final float x2 = CAMERA_WIDTH - this.mOnScreenControlBaseTextureRegion.getWidth();
-		final AnalogOnScreenControl rotationOnScreenControl = new AnalogOnScreenControl(x2, y2, this.mCamera, this.mOnScreenControlBaseTextureRegion, this.mOnScreenControlKnobTextureRegion, 0.1f, this.getVertexBufferObjectManager(), new IAnalogOnScreenControlListener() {
-			@Override
-			public void onControlChange(final BaseOnScreenControl pBaseOnScreenControl, final float pValueX, final float pValueY) {
-				if(pValueX == x1 && pValueY == x1) {
-					body.setAngularVelocity(x1/50);
-				} else {
-					body.setAngularVelocity(MathUtils.radToDeg((float) Math.atan2(pValueX/50, -pValueY/50)));
-				}
-				;
-			}
-
-			@Override
-			public void onControlClick(final AnalogOnScreenControl pAnalogOnScreenControl) {
-				/* Nothing. */
-			}
-		});
-		rotationOnScreenControl.getControlBase().setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-		rotationOnScreenControl.getControlBase().setAlpha(0.5f);
-
-		velocityOnScreenControl.setChildScene(rotationOnScreenControl);
-		
 		//注册木板与左右边界的碰撞检测，检测到碰撞时反弹木板（KinematicBody与StaticBody不会发生碰撞）
-		mScene.registerUpdateHandler(new IUpdateHandler() {
-			@Override
-			public void reset() { }
+				mScene.registerUpdateHandler(new IUpdateHandler() {
+					@Override
+					public void reset() { }
 
-			@Override
-			public void onUpdate(final float pSecondsElapsed) {
-				if(left.collidesWith(wood)) {
-					body.setLinearVelocity(2, 0);
-				}
-				
-				if(right.collidesWith(wood)){
-					body.setLinearVelocity(-2, 0);
-				}
-				
-				if(roof.collidesWith(face) || left.collidesWith(face) || right.collidesWith(face)){
-					mScore += 50;
-					mScoreText.setText("Score: " + mScore);
-				}
-			}
-		});
+					@Override
+					public void onUpdate(final float pSecondsElapsed) {
+						if(left.collidesWith(wood)) {
+							woodBody.setLinearVelocity(2, 0);
+						}
+						
+						if(right.collidesWith(wood)){
+							woodBody.setLinearVelocity(-2, 0);
+						}
+						
+						if(roof.collidesWith(face) || left.collidesWith(face) || right.collidesWith(face)){
+							mScore += 50;
+							mScoreText.setText("Score: " + mScore);
+						}
+					}
+				});
+	}
+	
+	private void initOnScreenControls(){
+		//创建操控版，左操控版控制木板x轴速度，右操控版控制木板旋转的角速度
+				/* Velocity control (left). */
+				final float x1 = 0;
+				final float y1 = CAMERA_HEIGHT - this.mOnScreenControlBaseTextureRegion.getHeight();
+				final AnalogOnScreenControl velocityOnScreenControl = new AnalogOnScreenControl(x1, y1, this.mCamera, this.mOnScreenControlBaseTextureRegion, this.mOnScreenControlKnobTextureRegion, 0.1f, this.getVertexBufferObjectManager(), new IAnalogOnScreenControlListener() {
+					@Override
+					public void onControlChange(final BaseOnScreenControl pBaseOnScreenControl, final float pValueX, final float pValueY) {
+						final Vector2 velocity = Vector2Pool.obtain(pValueX*50, 0);
+						woodBody.setLinearVelocity(velocity);
+						Vector2Pool.recycle(velocity);
+					}
+
+					@Override
+					public void onControlClick(final AnalogOnScreenControl pAnalogOnScreenControl) {
+						/* Nothing. */
+					}
+				});
+				velocityOnScreenControl.getControlBase().setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+				velocityOnScreenControl.getControlBase().setAlpha(0.5f);
+
+				this.mScene.setChildScene(velocityOnScreenControl);
+
+
+				/* Rotation control (right). */
+				final float y2 = (this.mPlaceOnScreenControlsAtDifferentVerticalLocations) ? 0 : y1;
+				final float x2 = CAMERA_WIDTH - this.mOnScreenControlBaseTextureRegion.getWidth();
+				final AnalogOnScreenControl rotationOnScreenControl = new AnalogOnScreenControl(x2, y2, this.mCamera, this.mOnScreenControlBaseTextureRegion, this.mOnScreenControlKnobTextureRegion, 0.1f, this.getVertexBufferObjectManager(), new IAnalogOnScreenControlListener() {
+					@Override
+					public void onControlChange(final BaseOnScreenControl pBaseOnScreenControl, final float pValueX, final float pValueY) {
+						if(pValueX == x1 && pValueY == x1) {
+							woodBody.setAngularVelocity(x1/50);
+						} else {
+							woodBody.setAngularVelocity(MathUtils.radToDeg((float) Math.atan2(pValueX/50, -pValueY/50)));
+						}
+						;
+					}
+
+					@Override
+					public void onControlClick(final AnalogOnScreenControl pAnalogOnScreenControl) {
+						/* Nothing. */
+					}
+				});
+				rotationOnScreenControl.getControlBase().setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+				rotationOnScreenControl.getControlBase().setAlpha(0.5f);
+
+				velocityOnScreenControl.setChildScene(rotationOnScreenControl);
+	}
+	
+	private void initText(){
+		/* The ScoreText showing how many points the pEntity scored. */
+		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0", "Score: XXXX".length(), this.getVertexBufferObjectManager());
+		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		this.mScoreText.setAlpha(0.5f);
+		this.mScene.attachChild(this.mScoreText);
 		
 		/* The game-over text. */
 		this.mGameOverText = new Text(0, 0, this.mFont, "Game\nOver", new TextOptions(HorizontalAlign.CENTER), this.getVertexBufferObjectManager());
 		this.mGameOverText.setPosition((CAMERA_WIDTH - this.mGameOverText.getWidth()) * 0.5f, (CAMERA_HEIGHT - this.mGameOverText.getHeight()) * 0.5f);
 		this.mGameOverText.registerEntityModifier(new ScaleModifier(3, 0.1f, 2.0f));
 		this.mGameOverText.registerEntityModifier(new RotationModifier(3, 0, 720));
-		return this.mScene;
 	}
-
-
+	
 	@Override
 	public void onAccelerationAccuracyChanged(final AccelerationData pAccelerationData) {
 
