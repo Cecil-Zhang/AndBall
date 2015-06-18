@@ -2,6 +2,8 @@ package com.nju.andball;
 
 import static org.andengine.extension.physics.box2d.util.constants.PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT;
 
+import java.util.Random;
+
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.camera.hud.controls.AnalogOnScreenControl;
 import org.andengine.engine.camera.hud.controls.BaseOnScreenControl;
@@ -54,24 +56,26 @@ import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
 
-public class PhysicsBall extends SimpleBaseGameActivity implements IAccelerationListener {
+public class PhysicsBall extends SimpleBaseGameActivity implements
+		IAccelerationListener {
 	// ===========================================================
 	// Constants
 	// ===========================================================
-
+	private static final long RANDOM_SEED = 1234567890;
 	private static final int CAMERA_WIDTH = 720;
 	private static final int CAMERA_HEIGHT = 480;
 
-	private static final FixtureDef FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 0.6f, 0.6f); //密度，弹性系数，摩擦系数
-	private static final FixtureDef WOOD_FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 1.0f, 0.6f);
-
+	private static final FixtureDef BALL_FIXTURE_DEF = PhysicsFactory
+			.createFixtureDef(0.1f, 0.8f, 0.6f); // 密度，弹性系数，摩擦系数
+	private static final FixtureDef WOOD_FIXTURE_DEF = PhysicsFactory
+			.createFixtureDef(1, 2.0f, 0.6f);
 	private static final int LAYER_COUNT = 3;
 
 	private static final int LAYER_BACKGROUND = 0;
 	private static final int LAYER_SPRITE = LAYER_BACKGROUND + 1;
 	private static final int LAYER_SCORE = LAYER_SPRITE + 1;
 	protected boolean mGameRunning;
-	
+
 	// ===========================================================
 	// Fields
 	// ===========================================================
@@ -84,20 +88,21 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	private BitmapTextureAtlas mOnScreenControlTexture;
 	private ITextureRegion mOnScreenControlBaseTextureRegion;
 	private ITextureRegion mOnScreenControlKnobTextureRegion;
-	
+
 	private boolean mPlaceOnScreenControlsAtDifferentVerticalLocations = false;
 	private Scene mScene;
 
 	private PhysicsWorld mPhysicsWorld;
 	private Sprite wood;
-	private Sprite hole;
-	private AnimatedSprite face;
+	private Sprite nail;
+	private AnimatedSprite ball;
 	private Body woodBody;
 	private Body ballBody;
 	private int mScore = 0;
 	private Text mScoreText;
 	private Text mGameOverText;
 	private Font mFont;
+
 	// ===========================================================
 	// Constructors
 	// ===========================================================
@@ -115,17 +120,28 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 
-		final EngineOptions engineOptions = new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
+		final EngineOptions engineOptions = new EngineOptions(true,
+				ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(
+						CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
 		engineOptions.getTouchOptions().setNeedsMultiTouch(true);
-		if(MultiTouch.isSupported(this)) {
-			if(MultiTouch.isSupportedDistinct(this)) {
-				Toast.makeText(this, "MultiTouch detected --> Both controls will work properly!", Toast.LENGTH_SHORT).show();
+		if (MultiTouch.isSupported(this)) {
+			if (MultiTouch.isSupportedDistinct(this)) {
+				Toast.makeText(
+						this,
+						"MultiTouch detected --> Both controls will work properly!",
+						Toast.LENGTH_SHORT).show();
 			} else {
 				this.mPlaceOnScreenControlsAtDifferentVerticalLocations = true;
-				Toast.makeText(this, "MultiTouch detected, but your device has problems distinguishing between fingers.\n\nControls are placed at different vertical locations.", Toast.LENGTH_LONG).show();
+				Toast.makeText(
+						this,
+						"MultiTouch detected, but your device has problems distinguishing between fingers.\n\nControls are placed at different vertical locations.",
+						Toast.LENGTH_LONG).show();
 			}
 		} else {
-			Toast.makeText(this, "Sorry your device does NOT support MultiTouch!\n\n(Falling back to SingleTouch.)\n\nControls are placed at different vertical locations.", Toast.LENGTH_LONG).show();
+			Toast.makeText(
+					this,
+					"Sorry your device does NOT support MultiTouch!\n\n(Falling back to SingleTouch.)\n\nControls are placed at different vertical locations.",
+					Toast.LENGTH_LONG).show();
 		}
 		return engineOptions;
 	}
@@ -134,20 +150,34 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	public void onCreateResources() {
 		/* Load the font we are going to use. */
 		FontFactory.setAssetBasePath("fonts/");
-		this.mFont = FontFactory.createFromAsset(this.getFontManager(), this.getTextureManager(), 512, 512, TextureOptions.BILINEAR, this.getAssets(), "Plok.ttf", 32, true, Color.WHITE);
+		this.mFont = FontFactory.createFromAsset(this.getFontManager(),
+				this.getTextureManager(), 512, 512, TextureOptions.BILINEAR,
+				this.getAssets(), "Plok.ttf", 32, true, Color.WHITE);
 		this.mFont.load();
-		
+
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
-		this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 128, 128, TextureOptions.BILINEAR);
-		this.mCircleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_circle_tiled.png", 0, 0, 2, 1); // 64x32
-		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0, 32);
-		this.mHoleTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "nail_down.png",0,64);
-		this.mOnScreenControlTexture = new BitmapTextureAtlas(this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
-		this.mOnScreenControlBaseTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mOnScreenControlTexture, this, "onscreen_control_base.png", 0, 0);
-		this.mOnScreenControlKnobTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mOnScreenControlTexture, this, "onscreen_control_knob.png", 128, 0);
+		this.mBitmapTextureAtlas = new BitmapTextureAtlas(
+				this.getTextureManager(), 128, 128, TextureOptions.BILINEAR);
+		this.mCircleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
+						"face_circle_tiled.png", 0, 0, 2, 1); // 64x32
+		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0,
+						32);
+		this.mHoleTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mBitmapTextureAtlas, this,
+						"nail_down.png", 0, 64);
+		this.mOnScreenControlTexture = new BitmapTextureAtlas(
+				this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
+		this.mOnScreenControlBaseTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mOnScreenControlTexture, this,
+						"onscreen_control_base.png", 0, 0);
+		this.mOnScreenControlKnobTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mOnScreenControlTexture, this,
+						"onscreen_control_knob.png", 128, 0);
 		this.mOnScreenControlTexture.load();
-		
+
 		this.mBitmapTextureAtlas.load();
 	}
 
@@ -156,175 +186,271 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		this.mEngine.registerUpdateHandler(new FPSLogger());
 
 		this.mScene = new Scene();
-		for(int i = 0; i < LAYER_COUNT; i++) {
+		for (int i = 0; i < LAYER_COUNT; i++) {
 			this.mScene.attachChild(new Entity());
 		}
-		this.mScene.setBackground(new Background(0.8f,0.8f,0.6f));
-		
-		//创建一个物理世界，重力与地球重力相等
-		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
+		this.mScene.setBackground(new Background(0.8f, 0.8f, 0.6f));
+
+		// 创建一个物理世界，重力与地球重力相等
+		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0,
+				SensorManager.GRAVITY_MARS), false);
 
 		this.initSprites();
+		this.addBall();
 		this.initOnScreenControls();
 		this.initText();
-		
+
 		return this.mScene;
 	}
-	
 
-	private void initSprites(){
-		final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
-		//创建物理世界边界
-		final Rectangle ground = new Rectangle(0, CAMERA_HEIGHT - 2, CAMERA_WIDTH, 2, vertexBufferObjectManager);
-		final Rectangle roof = new Rectangle(0, 0, CAMERA_WIDTH, 2, vertexBufferObjectManager);
-		final Rectangle left = new Rectangle(0, 0, 2, CAMERA_HEIGHT, vertexBufferObjectManager);
-		final Rectangle right = new Rectangle(CAMERA_WIDTH - 2, 0, 2, CAMERA_HEIGHT, vertexBufferObjectManager);
+	private void initSprites() {
+		final VertexBufferObjectManager vertexBufferObjectManager = this
+				.getVertexBufferObjectManager();
+		// 创建物理世界边界
+		final Rectangle ground = new Rectangle(0, CAMERA_HEIGHT - 2,
+				CAMERA_WIDTH, 2, vertexBufferObjectManager);
+		final Rectangle roof = new Rectangle(0, 0, CAMERA_WIDTH, 2,
+				vertexBufferObjectManager);
+		final Rectangle left = new Rectangle(0, 0, 2, CAMERA_HEIGHT,
+				vertexBufferObjectManager);
+		final Rectangle right = new Rectangle(CAMERA_WIDTH - 2, 0, 2,
+				CAMERA_HEIGHT, vertexBufferObjectManager);
 
-		//物理世界边界材料定义，并根据材料创建刚体
-		final FixtureDef wallFixtureDef = PhysicsFactory.createFixtureDef(0, 0.5f, 0.5f);	
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, ground, BodyType.StaticBody, wallFixtureDef);
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, roof, BodyType.StaticBody, wallFixtureDef);
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, left, BodyType.StaticBody, wallFixtureDef);
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, right, BodyType.StaticBody, wallFixtureDef);
-		
-		//创建木板
-		wood = new Sprite(CAMERA_WIDTH/2, CAMERA_HEIGHT-64, this.mWoodTextureRegion, this.getVertexBufferObjectManager());
-		woodBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, wood, BodyType.KinematicBody, WOOD_FIXTURE_DEF);	//KinematicBody根据速度进行移动，但不受重力影响
-		
-		//创建小球
-		face = new AnimatedSprite(0, 0, this.mCircleFaceTextureRegion, this.getVertexBufferObjectManager());
-		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, face, BodyType.DynamicBody, FIXTURE_DEF); 
-		
-		face.animate(200);
-		
-		//创建球洞
-		hole = new Sprite(CAMERA_WIDTH/2, 0,this.mHoleTextureRegion,this.getVertexBufferObjectManager());
-//		hole.setWidth(32);
-//		hole.setHeight(32);
-		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(hole);
-		
-		//将精灵加入到场景中
+		// 物理世界边界材料定义，并根据材料创建刚体
+		final FixtureDef wallFixtureDef = PhysicsFactory.createFixtureDef(0,
+				0.7f, 0.5f);
+		PhysicsFactory.createBoxBody(this.mPhysicsWorld, ground,
+				BodyType.StaticBody, wallFixtureDef);
+		PhysicsFactory.createBoxBody(this.mPhysicsWorld, roof,
+				BodyType.StaticBody, wallFixtureDef);
+		PhysicsFactory.createBoxBody(this.mPhysicsWorld, left,
+				BodyType.StaticBody, wallFixtureDef);
+		PhysicsFactory.createBoxBody(this.mPhysicsWorld, right,
+				BodyType.StaticBody, wallFixtureDef);
+
+		// 创建木板
+		wood = new Sprite(CAMERA_WIDTH / 2, CAMERA_HEIGHT - 64,
+				this.mWoodTextureRegion, this.getVertexBufferObjectManager());
+		woodBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, wood,
+				BodyType.KinematicBody, WOOD_FIXTURE_DEF); // KinematicBody根据速度进行移动，但不受重力影响
+
+		// 创建球洞
+		nail = new Sprite(CAMERA_WIDTH / 2, 0, this.mHoleTextureRegion,
+				this.getVertexBufferObjectManager());
+		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(nail);
+
+		// 将精灵加入到场景中
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ground);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(roof);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(left);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(right);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(wood);
-		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(face);
 
-		//创建刚体与精灵的物理连接件，并允许刚体和物理世界改变精灵位置，两个操控版都是靠改变刚体状态来间接改变精灵状态
+		// 创建刚体与精灵的物理连接件，并允许刚体和物理世界改变精灵位置，两个操控版都是靠改变刚体状态来间接改变精灵状态
 		this.mScene.setTouchAreaBindingOnActionDownEnabled(true);
 		this.mScene.registerUpdateHandler(this.mPhysicsWorld);
-		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(wood, woodBody, true, true));
-		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(face, ballBody, true, true));
-		
-		//注册木板与左右边界的碰撞检测，检测到碰撞时反弹木板（KinematicBody与StaticBody不会发生碰撞）
-				mScene.registerUpdateHandler(new IUpdateHandler() {
-					@Override
-					public void reset() { }
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(wood,
+				woodBody, true, true));
 
-					@Override
-					public void onUpdate(final float pSecondsElapsed) {
-						if(left.collidesWith(wood)) {
-							woodBody.setLinearVelocity(2, 0);
-						}
-						
-						if(right.collidesWith(wood)){
-							woodBody.setLinearVelocity(-2, 0);
-						}
-						
-						
-						if(hole.collidesWith(face)){
-							mScore = mScore+50;
-							mScoreText.setText("Score: "+mScore);
-						}
-						
-//						if(ground.collidesWith(face)){
-//							onGameOver();
-//						}
-					}
-				});
+		// 注册木板与左右边界的碰撞检测，检测到碰撞时反弹木板（KinematicBody与StaticBody不会发生碰撞）
+		mScene.registerUpdateHandler(new IUpdateHandler() {
+			@Override
+			public void reset() {
+			}
+
+			@Override
+			public void onUpdate(final float pSecondsElapsed) {
+				if (left.collidesWith(wood)) {
+					woodBody.setLinearVelocity(2, 0);
+				}
+
+				if (right.collidesWith(wood)) {
+					woodBody.setLinearVelocity(-2, 0);
+				}
+
+				if (nail.collidesWith(ball)) {
+					removeBall();
+					mScore = mScore + 50;
+					mScoreText.setText("Score: " + mScore);
+					moveNail();
+					addBall();
+					
+				}
+
+				// if(ground.collidesWith(face)){
+				// onGameOver();
+				// }
+			}
+		});
+	}
+
+	private void moveNail(){
+		int seed=(int) Math.round( Math.random()*4);
+		switch(seed%4){
+		case 0:
+			//move nail to roof
+			nail.setPosition(((float) Math.random())*CAMERA_WIDTH, 0);
+			nail.setRotation(0);
+			break;
+		case 1:
+			//move nail to left
+			nail.setPosition(10, ((float) Math.random())*CAMERA_HEIGHT);
+			nail.setRotation(270f);
+			break;
+		case 2:
+			//move nail to right
+			nail.setPosition(CAMERA_WIDTH-30, ((float) Math.random())*CAMERA_HEIGHT);
+			nail.setRotation(90f);
+			break;
+		case 3:
+			nail.setPosition(((float) Math.random())*CAMERA_WIDTH, CAMERA_HEIGHT-64);
+			nail.setRotation(180f);
+		}
 	}
 	
-	private void initOnScreenControls(){
-		//创建操控版，左操控版控制木板x轴速度，右操控版控制木板旋转的角速度
-				/* Velocity control (left). */
-				final float x1 = 0;
-				final float y1 = CAMERA_HEIGHT - this.mOnScreenControlBaseTextureRegion.getHeight();
-				final AnalogOnScreenControl velocityOnScreenControl = new AnalogOnScreenControl(x1, y1, this.mCamera, this.mOnScreenControlBaseTextureRegion, this.mOnScreenControlKnobTextureRegion, 0.1f, this.getVertexBufferObjectManager(), new IAnalogOnScreenControlListener() {
+	private void removeBall() {
+		final PhysicsConnector facePhysicsConnector = mPhysicsWorld
+				.getPhysicsConnectorManager().findPhysicsConnectorByShape(ball);
+
+		mPhysicsWorld.unregisterPhysicsConnector(facePhysicsConnector);
+		mPhysicsWorld.destroyBody(facePhysicsConnector.getBody());
+
+		mScene.unregisterTouchArea(ball);
+		mScene.getChildByIndex(LAYER_SPRITE).detachChild(ball);
+
+		System.gc();
+	}
+
+	private void addBall() {
+		// 创建小球
+		ball = new AnimatedSprite(((float) Math.random())*CAMERA_WIDTH, ((float) Math.random())*CAMERA_HEIGHT, this.mCircleFaceTextureRegion,
+				this.getVertexBufferObjectManager());
+		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, ball,
+				BodyType.DynamicBody, BALL_FIXTURE_DEF);
+
+		ball.animate(200);
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(ball,
+				ballBody, true, true));
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ball);
+	}
+	
+
+	private void initOnScreenControls() {
+		// 创建操控版，左操控版控制木板x轴速度，右操控版控制木板旋转的角速度
+		/* Velocity control (left). */
+		final float x1 = 0;
+		final float y1 = CAMERA_HEIGHT
+				- this.mOnScreenControlBaseTextureRegion.getHeight();
+		final AnalogOnScreenControl velocityOnScreenControl = new AnalogOnScreenControl(
+				x1, y1, this.mCamera, this.mOnScreenControlBaseTextureRegion,
+				this.mOnScreenControlKnobTextureRegion, 0.1f,
+				this.getVertexBufferObjectManager(),
+				new IAnalogOnScreenControlListener() {
 					@Override
-					public void onControlChange(final BaseOnScreenControl pBaseOnScreenControl, final float pValueX, final float pValueY) {
-						final Vector2 velocity = Vector2Pool.obtain(pValueX*50, 0);
+					public void onControlChange(
+							final BaseOnScreenControl pBaseOnScreenControl,
+							final float pValueX, final float pValueY) {
+						final Vector2 velocity = Vector2Pool.obtain(
+								pValueX * 50, 0);
 						woodBody.setLinearVelocity(velocity);
 						Vector2Pool.recycle(velocity);
 					}
 
 					@Override
-					public void onControlClick(final AnalogOnScreenControl pAnalogOnScreenControl) {
+					public void onControlClick(
+							final AnalogOnScreenControl pAnalogOnScreenControl) {
 						/* Nothing. */
 					}
 				});
-				velocityOnScreenControl.getControlBase().setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-				velocityOnScreenControl.getControlBase().setAlpha(0.5f);
+		velocityOnScreenControl.getControlBase().setBlendFunction(
+				GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		velocityOnScreenControl.getControlBase().setAlpha(0.5f);
 
-				this.mScene.setChildScene(velocityOnScreenControl);
+		this.mScene.setChildScene(velocityOnScreenControl);
 
-
-				/* Rotation control (right). */
-				final float y2 = (this.mPlaceOnScreenControlsAtDifferentVerticalLocations) ? 0 : y1;
-				final float x2 = CAMERA_WIDTH - this.mOnScreenControlBaseTextureRegion.getWidth();
-				final AnalogOnScreenControl rotationOnScreenControl = new AnalogOnScreenControl(x2, y2, this.mCamera, this.mOnScreenControlBaseTextureRegion, this.mOnScreenControlKnobTextureRegion, 0.1f, this.getVertexBufferObjectManager(), new IAnalogOnScreenControlListener() {
+		/* Rotation control (right). */
+		final float y2 = (this.mPlaceOnScreenControlsAtDifferentVerticalLocations) ? 0
+				: y1;
+		final float x2 = CAMERA_WIDTH
+				- this.mOnScreenControlBaseTextureRegion.getWidth();
+		final AnalogOnScreenControl rotationOnScreenControl = new AnalogOnScreenControl(
+				x2, y2, this.mCamera, this.mOnScreenControlBaseTextureRegion,
+				this.mOnScreenControlKnobTextureRegion, 0.1f,
+				this.getVertexBufferObjectManager(),
+				new IAnalogOnScreenControlListener() {
 					@Override
-					public void onControlChange(final BaseOnScreenControl pBaseOnScreenControl, final float pValueX, final float pValueY) {
-						if(pValueX == x1 && pValueY == x1) {
-//							woodBody.setAngularVelocity(x1/50);
-							final float rotationInRad = (float)Math.atan2(x1, 0);
-							woodBody.setTransform(woodBody.getWorldCenter(), rotationInRad);
+					public void onControlChange(
+							final BaseOnScreenControl pBaseOnScreenControl,
+							final float pValueX, final float pValueY) {
+						if (pValueX == x1 && pValueY == x1) {
+							// woodBody.setAngularVelocity(x1/50);
+							final float rotationInRad = (float) Math.atan2(x1,
+									0);
+							woodBody.setTransform(woodBody.getWorldCenter(),
+									rotationInRad);
 
-							PhysicsBall.this.wood.setRotation(MathUtils.radToDeg(rotationInRad));
+							PhysicsBall.this.wood.setRotation(MathUtils
+									.radToDeg(rotationInRad));
 						} else {
-//							woodBody.setAngularVelocity(MathUtils.radToDeg((float) Math.atan2(pValueX/50, -pValueY/50)));
-							final float rotationInRad = (float)Math.atan2(pValueX/50, -pValueY/50);
-							woodBody.setTransform(woodBody.getWorldCenter(), rotationInRad);
+							// woodBody.setAngularVelocity(MathUtils.radToDeg((float)
+							// Math.atan2(pValueX/50, -pValueY/50)));
+							final float rotationInRad = (float) Math.atan2(
+									pValueX / 50, -pValueY / 50);
+							woodBody.setTransform(woodBody.getWorldCenter(),
+									rotationInRad);
 
-							PhysicsBall.this.wood.setRotation(MathUtils.radToDeg(rotationInRad));
+							PhysicsBall.this.wood.setRotation(MathUtils
+									.radToDeg(rotationInRad));
 						}
 						;
 					}
 
 					@Override
-					public void onControlClick(final AnalogOnScreenControl pAnalogOnScreenControl) {
+					public void onControlClick(
+							final AnalogOnScreenControl pAnalogOnScreenControl) {
 						/* Nothing. */
 					}
 				});
-				rotationOnScreenControl.getControlBase().setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-				rotationOnScreenControl.getControlBase().setAlpha(0.5f);
+		rotationOnScreenControl.getControlBase().setBlendFunction(
+				GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		rotationOnScreenControl.getControlBase().setAlpha(0.5f);
 
-				velocityOnScreenControl.setChildScene(rotationOnScreenControl);
+		velocityOnScreenControl.setChildScene(rotationOnScreenControl);
 	}
-	
-	private void initText(){
+
+	private void initText() {
 		/* The ScoreText showing how many points the pEntity scored. */
-		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0", "Score: XXXX".length(), this.getVertexBufferObjectManager());
-		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0",
+				"Score: XXXX".length(), this.getVertexBufferObjectManager());
+		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA,
+				GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		this.mScoreText.setAlpha(0.5f);
 		this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mScoreText);
-		
+
 		/* The game-over text. */
-		this.mGameOverText = new Text(0, 0, this.mFont, "Game\nOver", new TextOptions(HorizontalAlign.CENTER), this.getVertexBufferObjectManager());
-		this.mGameOverText.setPosition((CAMERA_WIDTH - this.mGameOverText.getWidth()) * 0.5f, (CAMERA_HEIGHT - this.mGameOverText.getHeight()) * 0.5f);
-		this.mGameOverText.registerEntityModifier(new ScaleModifier(3, 0.1f, 2.0f));
-		this.mGameOverText.registerEntityModifier(new RotationModifier(3, 0, 720));
+		this.mGameOverText = new Text(0, 0, this.mFont, "Game\nOver",
+				new TextOptions(HorizontalAlign.CENTER),
+				this.getVertexBufferObjectManager());
+		this.mGameOverText.setPosition(
+				(CAMERA_WIDTH - this.mGameOverText.getWidth()) * 0.5f,
+				(CAMERA_HEIGHT - this.mGameOverText.getHeight()) * 0.5f);
+		this.mGameOverText.registerEntityModifier(new ScaleModifier(3, 0.1f,
+				2.0f));
+		this.mGameOverText.registerEntityModifier(new RotationModifier(3, 0,
+				720));
 	}
-	
+
 	@Override
-	public void onAccelerationAccuracyChanged(final AccelerationData pAccelerationData) {
+	public void onAccelerationAccuracyChanged(
+			final AccelerationData pAccelerationData) {
 
 	}
 
 	@Override
 	public void onAccelerationChanged(final AccelerationData pAccelerationData) {
-		//根据手机重力感应器的状态改变物理世界的重力
-		final Vector2 gravity = Vector2Pool.obtain(pAccelerationData.getX(), pAccelerationData.getY());
+		// 根据手机重力感应器的状态改变物理世界的重力
+		final Vector2 gravity = Vector2Pool.obtain(pAccelerationData.getX(),
+				pAccelerationData.getY());
 		this.mPhysicsWorld.setGravity(gravity);
 		Vector2Pool.recycle(gravity);
 	}
@@ -342,30 +468,38 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 
 		this.disableAccelerationSensor();
 	}
-	
+
 	private void onGameOver() {
-//		this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mGameOverText);
+		// this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mGameOverText);
 		this.ballBody.setLinearVelocity(0, 0);
 		this.mScoreText.setText("Game Over ! ");
-		this.mGameRunning=false;
+		this.mGameRunning = false;
 	}
 
 	// ===========================================================
 	// Methods
 	// ===========================================================
 
-
 	/**
-	 * Creates a {@link Body} based on a {@link PolygonShape} in the form of a triangle:
+	 * Creates a {@link Body} based on a {@link PolygonShape} in the form of a
+	 * triangle:
+	 * 
 	 * <pre>
 	 *  /\
 	 * /__\
 	 * </pre>
 	 */
-	private static Body createTriangleBody(final PhysicsWorld pPhysicsWorld, final IAreaShape pAreaShape, final BodyType pBodyType, final FixtureDef pFixtureDef) {
-		/* Remember that the vertices are relative to the center-coordinates of the Shape. */
-		final float halfWidth = pAreaShape.getWidthScaled() * 0.5f / PIXEL_TO_METER_RATIO_DEFAULT;
-		final float halfHeight = pAreaShape.getHeightScaled() * 0.5f / PIXEL_TO_METER_RATIO_DEFAULT;
+	private static Body createTriangleBody(final PhysicsWorld pPhysicsWorld,
+			final IAreaShape pAreaShape, final BodyType pBodyType,
+			final FixtureDef pFixtureDef) {
+		/*
+		 * Remember that the vertices are relative to the center-coordinates of
+		 * the Shape.
+		 */
+		final float halfWidth = pAreaShape.getWidthScaled() * 0.5f
+				/ PIXEL_TO_METER_RATIO_DEFAULT;
+		final float halfHeight = pAreaShape.getHeightScaled() * 0.5f
+				/ PIXEL_TO_METER_RATIO_DEFAULT;
 
 		final float top = -halfHeight;
 		final float bottom = halfHeight;
@@ -373,17 +507,17 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		final float centerX = 0;
 		final float right = halfWidth;
 
-		final Vector2[] vertices = {
-				new Vector2(centerX, top),
-				new Vector2(right, bottom),
-				new Vector2(left, bottom)
-		};
+		final Vector2[] vertices = { new Vector2(centerX, top),
+				new Vector2(right, bottom), new Vector2(left, bottom) };
 
-		return PhysicsFactory.createPolygonBody(pPhysicsWorld, pAreaShape, vertices, pBodyType, pFixtureDef);
+		return PhysicsFactory.createPolygonBody(pPhysicsWorld, pAreaShape,
+				vertices, pBodyType, pFixtureDef);
 	}
 
 	/**
-	 * Creates a {@link Body} based on a {@link PolygonShape} in the form of a hexagon:
+	 * Creates a {@link Body} based on a {@link PolygonShape} in the form of a
+	 * hexagon:
+	 * 
 	 * <pre>
 	 *  /\
 	 * /  \
@@ -393,33 +527,43 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	 *  \/
 	 * </pre>
 	 */
-	private static Body createHexagonBody(final PhysicsWorld pPhysicsWorld, final IAreaShape pAreaShape, final BodyType pBodyType, final FixtureDef pFixtureDef) {
-		/* Remember that the vertices are relative to the center-coordinates of the Shape. */
-		final float halfWidth = pAreaShape.getWidthScaled() * 0.5f / PIXEL_TO_METER_RATIO_DEFAULT;
-		final float halfHeight = pAreaShape.getHeightScaled() * 0.5f / PIXEL_TO_METER_RATIO_DEFAULT;
+	private static Body createHexagonBody(final PhysicsWorld pPhysicsWorld,
+			final IAreaShape pAreaShape, final BodyType pBodyType,
+			final FixtureDef pFixtureDef) {
+		/*
+		 * Remember that the vertices are relative to the center-coordinates of
+		 * the Shape.
+		 */
+		final float halfWidth = pAreaShape.getWidthScaled() * 0.5f
+				/ PIXEL_TO_METER_RATIO_DEFAULT;
+		final float halfHeight = pAreaShape.getHeightScaled() * 0.5f
+				/ PIXEL_TO_METER_RATIO_DEFAULT;
 
-		/* The top and bottom vertex of the hexagon are on the bottom and top of hexagon-sprite. */
+		/*
+		 * The top and bottom vertex of the hexagon are on the bottom and top of
+		 * hexagon-sprite.
+		 */
 		final float top = -halfHeight;
 		final float bottom = halfHeight;
 
 		final float centerX = 0;
 
-		/* The left and right vertices of the heaxgon are not on the edge of the hexagon-sprite, so we need to inset them a little. */
+		/*
+		 * The left and right vertices of the heaxgon are not on the edge of the
+		 * hexagon-sprite, so we need to inset them a little.
+		 */
 		final float left = -halfWidth + 2.5f / PIXEL_TO_METER_RATIO_DEFAULT;
 		final float right = halfWidth - 2.5f / PIXEL_TO_METER_RATIO_DEFAULT;
 		final float higher = top + 8.25f / PIXEL_TO_METER_RATIO_DEFAULT;
 		final float lower = bottom - 8.25f / PIXEL_TO_METER_RATIO_DEFAULT;
 
-		final Vector2[] vertices = {
-				new Vector2(centerX, top),
-				new Vector2(right, higher),
-				new Vector2(right, lower),
-				new Vector2(centerX, bottom),
-				new Vector2(left, lower),
-				new Vector2(left, higher)
-		};
+		final Vector2[] vertices = { new Vector2(centerX, top),
+				new Vector2(right, higher), new Vector2(right, lower),
+				new Vector2(centerX, bottom), new Vector2(left, lower),
+				new Vector2(left, higher) };
 
-		return PhysicsFactory.createPolygonBody(pPhysicsWorld, pAreaShape, vertices, pBodyType, pFixtureDef);
+		return PhysicsFactory.createPolygonBody(pPhysicsWorld, pAreaShape,
+				vertices, pBodyType, pFixtureDef);
 	}
 
 	// ===========================================================
