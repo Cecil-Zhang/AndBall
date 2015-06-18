@@ -2,23 +2,19 @@ package com.nju.andball;
 
 import static org.andengine.extension.physics.box2d.util.constants.PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT;
 
-import java.io.IOException;
-import java.io.InputStream;
-
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.camera.hud.controls.AnalogOnScreenControl;
 import org.andengine.engine.camera.hud.controls.BaseOnScreenControl;
 import org.andengine.engine.camera.hud.controls.AnalogOnScreenControl.IAnalogOnScreenControlListener;
 import org.andengine.engine.handler.IUpdateHandler;
-import org.andengine.engine.handler.physics.PhysicsHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.Entity;
 import org.andengine.entity.modifier.RotationModifier;
 import org.andengine.entity.modifier.ScaleModifier;
+import org.andengine.entity.primitive.Line;
 import org.andengine.entity.primitive.Rectangle;
-import org.andengine.entity.scene.IOnSceneTouchListener;
 import org.andengine.entity.scene.Scene;
 import org.andengine.entity.scene.background.Background;
 import org.andengine.entity.shape.IAreaShape;
@@ -33,28 +29,23 @@ import org.andengine.extension.physics.box2d.PhysicsWorld;
 import org.andengine.extension.physics.box2d.util.Vector2Pool;
 import org.andengine.input.sensor.acceleration.AccelerationData;
 import org.andengine.input.sensor.acceleration.IAccelerationListener;
-import org.andengine.input.touch.TouchEvent;
 import org.andengine.input.touch.controller.MultiTouch;
 import org.andengine.opengl.font.Font;
 import org.andengine.opengl.font.FontFactory;
-import org.andengine.opengl.texture.ITexture;
 import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
-import org.andengine.opengl.texture.bitmap.BitmapTexture;
 import org.andengine.opengl.texture.region.ITextureRegion;
-import org.andengine.opengl.texture.region.TextureRegionFactory;
 import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
 import org.andengine.ui.activity.SimpleBaseGameActivity;
 import org.andengine.util.HorizontalAlign;
-import org.andengine.util.adt.io.in.IInputStreamOpener;
-import org.andengine.util.debug.Debug;
 import org.andengine.util.math.MathUtils;
 
 import android.graphics.Color;
 import android.hardware.SensorManager;
 import android.opengl.GLES20;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.badlogic.gdx.math.Vector2;
@@ -89,6 +80,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	private BitmapTextureAtlas mBitmapTextureAtlas;
 	private TiledTextureRegion mCircleFaceTextureRegion;
 	private ITextureRegion mWoodTextureRegion;
+	private ITextureRegion mHoleTextureRegion;
 	private BitmapTextureAtlas mOnScreenControlTexture;
 	private ITextureRegion mOnScreenControlBaseTextureRegion;
 	private ITextureRegion mOnScreenControlKnobTextureRegion;
@@ -97,6 +89,9 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 	private Scene mScene;
 
 	private PhysicsWorld mPhysicsWorld;
+	private Sprite wood;
+	private Sprite hole;
+	private AnimatedSprite face;
 	private Body woodBody;
 	private Body ballBody;
 	private int mScore = 0;
@@ -144,10 +139,10 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
-		this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 128, 64, TextureOptions.BILINEAR);
+		this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 128, 128, TextureOptions.BILINEAR);
 		this.mCircleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "face_circle_tiled.png", 0, 0, 2, 1); // 64x32
 		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0, 32);
-
+		this.mHoleTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "nail_down.png",0,64);
 		this.mOnScreenControlTexture = new BitmapTextureAtlas(this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
 		this.mOnScreenControlBaseTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mOnScreenControlTexture, this, "onscreen_control_base.png", 0, 0);
 		this.mOnScreenControlKnobTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mOnScreenControlTexture, this, "onscreen_control_knob.png", 128, 0);
@@ -164,7 +159,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		for(int i = 0; i < LAYER_COUNT; i++) {
 			this.mScene.attachChild(new Entity());
 		}
-		this.mScene.setBackground(new Background(0, 0, 0));
+		this.mScene.setBackground(new Background(0.8f,0.8f,0.6f));
 		
 		//创建一个物理世界，重力与地球重力相等
 		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
@@ -176,6 +171,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		return this.mScene;
 	}
 	
+
 	private void initSprites(){
 		final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
 		//创建物理世界边界
@@ -192,14 +188,20 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 		PhysicsFactory.createBoxBody(this.mPhysicsWorld, right, BodyType.StaticBody, wallFixtureDef);
 		
 		//创建木板
-		final Sprite wood = new Sprite(CAMERA_WIDTH/2, CAMERA_HEIGHT-64, this.mWoodTextureRegion, this.getVertexBufferObjectManager());
+		wood = new Sprite(CAMERA_WIDTH/2, CAMERA_HEIGHT-64, this.mWoodTextureRegion, this.getVertexBufferObjectManager());
 		woodBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, wood, BodyType.KinematicBody, WOOD_FIXTURE_DEF);	//KinematicBody根据速度进行移动，但不受重力影响
 		
 		//创建小球
-		final AnimatedSprite face = new AnimatedSprite(CAMERA_WIDTH/2+10, 100, this.mCircleFaceTextureRegion, this.getVertexBufferObjectManager());
+		face = new AnimatedSprite(0, 0, this.mCircleFaceTextureRegion, this.getVertexBufferObjectManager());
 		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, face, BodyType.DynamicBody, FIXTURE_DEF); 
 		
 		face.animate(200);
+		
+		//创建球洞
+		hole = new Sprite(CAMERA_WIDTH/2, 0,this.mHoleTextureRegion,this.getVertexBufferObjectManager());
+//		hole.setWidth(32);
+//		hole.setHeight(32);
+		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(hole);
 		
 		//将精灵加入到场景中
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ground);
@@ -230,14 +232,15 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 							woodBody.setLinearVelocity(-2, 0);
 						}
 						
-						if(roof.collidesWith(face) || left.collidesWith(face) || right.collidesWith(face)){
-							mScore += 50;
-							mScoreText.setText("Score: " + mScore);
+						
+						if(hole.collidesWith(face)){
+							mScore = mScore+50;
+							mScoreText.setText("Score: "+mScore);
 						}
 						
-						if(ground.collidesWith(face)){
-							onGameOver();
-						}
+//						if(ground.collidesWith(face)){
+//							onGameOver();
+//						}
 					}
 				});
 	}
@@ -273,9 +276,17 @@ public class PhysicsBall extends SimpleBaseGameActivity implements IAcceleration
 					@Override
 					public void onControlChange(final BaseOnScreenControl pBaseOnScreenControl, final float pValueX, final float pValueY) {
 						if(pValueX == x1 && pValueY == x1) {
-							woodBody.setAngularVelocity(x1/50);
+//							woodBody.setAngularVelocity(x1/50);
+							final float rotationInRad = (float)Math.atan2(x1, 0);
+							woodBody.setTransform(woodBody.getWorldCenter(), rotationInRad);
+
+							PhysicsBall.this.wood.setRotation(MathUtils.radToDeg(rotationInRad));
 						} else {
-							woodBody.setAngularVelocity(MathUtils.radToDeg((float) Math.atan2(pValueX/50, -pValueY/50)));
+//							woodBody.setAngularVelocity(MathUtils.radToDeg((float) Math.atan2(pValueX/50, -pValueY/50)));
+							final float rotationInRad = (float)Math.atan2(pValueX/50, -pValueY/50);
+							woodBody.setTransform(woodBody.getWorldCenter(), rotationInRad);
+
+							PhysicsBall.this.wood.setRotation(MathUtils.radToDeg(rotationInRad));
 						}
 						;
 					}
