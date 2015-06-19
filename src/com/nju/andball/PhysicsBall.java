@@ -2,8 +2,13 @@ package com.nju.andball;
 
 import static org.andengine.extension.physics.box2d.util.constants.PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT;
 
+import java.io.IOException;
 import java.util.Random;
 
+import org.andengine.audio.music.Music;
+import org.andengine.audio.music.MusicFactory;
+import org.andengine.audio.sound.Sound;
+import org.andengine.audio.sound.SoundFactory;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.camera.hud.controls.AnalogOnScreenControl;
 import org.andengine.engine.camera.hud.controls.BaseOnScreenControl;
@@ -11,6 +16,7 @@ import org.andengine.engine.camera.hud.controls.AnalogOnScreenControl.IAnalogOnS
 import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
+import org.andengine.engine.options.resolutionpolicy.FillResolutionPolicy;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.Entity;
 import org.andengine.entity.modifier.RotationModifier;
@@ -18,7 +24,9 @@ import org.andengine.entity.modifier.ScaleModifier;
 import org.andengine.entity.primitive.Line;
 import org.andengine.entity.primitive.Rectangle;
 import org.andengine.entity.scene.Scene;
+import org.andengine.entity.scene.background.AutoParallaxBackground;
 import org.andengine.entity.scene.background.Background;
+import org.andengine.entity.scene.background.ParallaxBackground.ParallaxEntity;
 import org.andengine.entity.shape.IAreaShape;
 import org.andengine.entity.sprite.AnimatedSprite;
 import org.andengine.entity.sprite.Sprite;
@@ -42,6 +50,7 @@ import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
 import org.andengine.ui.activity.SimpleBaseGameActivity;
 import org.andengine.util.HorizontalAlign;
+import org.andengine.util.debug.Debug;
 import org.andengine.util.math.MathUtils;
 
 import android.graphics.Color;
@@ -61,7 +70,6 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	// ===========================================================
 	// Constants
 	// ===========================================================
-	private static final long RANDOM_SEED = 1234567890;
 	private static final int CAMERA_WIDTH = 720;
 	private static final int CAMERA_HEIGHT = 480;
 
@@ -74,23 +82,29 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	private static final int LAYER_BACKGROUND = 0;
 	private static final int LAYER_SPRITE = LAYER_BACKGROUND + 1;
 	private static final int LAYER_SCORE = LAYER_SPRITE + 1;
-	protected boolean mGameRunning;
+	private float EndingTimer = 60f;
 
 	// ===========================================================
 	// Fields
 	// ===========================================================
-
+	protected boolean mGameRunning;
 	private Camera mCamera;
 	private BitmapTextureAtlas mBitmapTextureAtlas;
 	private TiledTextureRegion mCircleFaceTextureRegion;
+	private TiledTextureRegion mFireTexutreRegion;
 	private ITextureRegion mWoodTextureRegion;
-	private ITextureRegion mHoleTextureRegion;
+	private ITextureRegion mNailTextureRegion;
+	private ITextureRegion mCloudTextureRegion;
+	private BitmapTextureAtlas mBackgroundTexture;
+	private ITextureRegion mBackgroundTextureRegion;
 	private BitmapTextureAtlas mOnScreenControlTexture;
 	private ITextureRegion mOnScreenControlBaseTextureRegion;
 	private ITextureRegion mOnScreenControlKnobTextureRegion;
 
 	private boolean mPlaceOnScreenControlsAtDifferentVerticalLocations = false;
 	private Scene mScene;
+	private Sound mHitSound;
+	private Music mBackgroundMusic;
 
 	private PhysicsWorld mPhysicsWorld;
 	private Sprite wood;
@@ -100,6 +114,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	private Body ballBody;
 	private int mScore = 0;
 	private Text mScoreText;
+	private Text mTimerText;
 	private Text mGameOverText;
 	private Font mFont;
 
@@ -121,8 +136,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 
 		final EngineOptions engineOptions = new EngineOptions(true,
-				ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(
-						CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
+				ScreenOrientation.LANDSCAPE_FIXED, new FillResolutionPolicy(), this.mCamera);
 		engineOptions.getTouchOptions().setNeedsMultiTouch(true);
 		if (MultiTouch.isSupported(this)) {
 			if (MultiTouch.isSupportedDistinct(this)) {
@@ -143,6 +157,8 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 					"Sorry your device does NOT support MultiTouch!\n\n(Falling back to SingleTouch.)\n\nControls are placed at different vertical locations.",
 					Toast.LENGTH_LONG).show();
 		}
+		engineOptions.getAudioOptions().setNeedsSound(true);
+		engineOptions.getAudioOptions().setNeedsMusic(true);
 		return engineOptions;
 	}
 
@@ -158,16 +174,18 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(
-				this.getTextureManager(), 128, 128, TextureOptions.BILINEAR);
+				this.getTextureManager(), 712, 712, TextureOptions.BILINEAR);
 		this.mCircleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
 						"face_circle_tiled.png", 0, 0, 2, 1); // 64x32
 		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0,
-						32);
-		this.mHoleTextureRegion = BitmapTextureAtlasTextureRegionFactory
+						32);	//  128x18
+		this.mNailTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"nail_down.png", 0, 64);
+						"nail_down.png", 0, 64);  // 26x59
+		this.mFireTexutreRegion = BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this, "fire.png", 0, 128, 6, 2); //  360x356
 		this.mOnScreenControlTexture = new BitmapTextureAtlas(
 				this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
 		this.mOnScreenControlBaseTextureRegion = BitmapTextureAtlasTextureRegionFactory
@@ -179,6 +197,26 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mOnScreenControlTexture.load();
 
 		this.mBitmapTextureAtlas.load();
+		
+		this.mBackgroundTexture = new BitmapTextureAtlas(this.getTextureManager(), 1024, 2048);
+		this.mBackgroundTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBackgroundTexture, this, "background.jpg", 0, 0);
+		this.mCloudTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBackgroundTexture, this, "cloud.png", 0, 768);
+		this.mBackgroundTexture.load();
+		
+		SoundFactory.setAssetBasePath("music/");
+		try {
+			this.mHitSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "ballRebound.wav");
+		} catch (final IOException e) {
+			Debug.e(e);
+		}
+		
+		MusicFactory.setAssetBasePath("music/");
+		try {
+			this.mBackgroundMusic = MusicFactory.createMusicFromAsset(this.mEngine.getMusicManager(), this, "quitVillage.mid");
+			this.mBackgroundMusic.setLooping(true);
+		} catch (final IOException e) {
+			Debug.e(e);
+		}
 	}
 
 	@Override
@@ -189,12 +227,18 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		for (int i = 0; i < LAYER_COUNT; i++) {
 			this.mScene.attachChild(new Entity());
 		}
-		this.mScene.setBackground(new Background(0.8f, 0.8f, 0.6f));
-
+//		this.mScene.setBackgroundEnabled(false);
+//		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(new Sprite(0, 0, this.mBackgroundTextureRegion, this.getVertexBufferObjectManager()));
+		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(0, 0, 0, 5);
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f, new Sprite(0, CAMERA_HEIGHT - this.mBackgroundTextureRegion.getHeight(), this.mBackgroundTextureRegion, this.getVertexBufferObjectManager())));
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-5.0f, new Sprite(0, 80, this.mCloudTextureRegion, this.getVertexBufferObjectManager())));
+		this.mScene.setBackground(autoParallaxBackground);
+		
 		// 创建一个物理世界，重力与地球重力相等
 		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0,
 				SensorManager.GRAVITY_MARS), false);
 
+		this.mBackgroundMusic.play();
 		this.initSprites();
 		this.addBall();
 		this.initOnScreenControls();
@@ -234,10 +278,14 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		woodBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, wood,
 				BodyType.KinematicBody, WOOD_FIXTURE_DEF); // KinematicBody根据速度进行移动，但不受重力影响
 
-		// 创建球洞
-		nail = new Sprite(CAMERA_WIDTH / 2, 0, this.mHoleTextureRegion,
+		// 创建钉子
+		nail = new Sprite(CAMERA_WIDTH / 2, 0, this.mNailTextureRegion,
 				this.getVertexBufferObjectManager());
 		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(nail);
+		
+		// 创建火焰
+		final AnimatedSprite fire = new AnimatedSprite(320, CAMERA_HEIGHT-64, this.mFireTexutreRegion, this.getVertexBufferObjectManager());
+		fire.animate(100);
 
 		// 将精灵加入到场景中
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ground);
@@ -245,6 +293,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(left);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(right);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(wood);
+		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(fire);
 
 		// 创建刚体与精灵的物理连接件，并允许刚体和物理世界改变精灵位置，两个操控版都是靠改变刚体状态来间接改变精灵状态
 		this.mScene.setTouchAreaBindingOnActionDownEnabled(true);
@@ -254,18 +303,36 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 
 		// 注册木板与左右边界的碰撞检测，检测到碰撞时反弹木板（KinematicBody与StaticBody不会发生碰撞）
 		mScene.registerUpdateHandler(new IUpdateHandler() {
+			private float noSoundTime=0;
+			
 			@Override
 			public void reset() {
 			}
 
 			@Override
 			public void onUpdate(final float pSecondsElapsed) {
+				EndingTimer -= pSecondsElapsed;
+				if(EndingTimer<=0){
+					mScene.unregisterUpdateHandler(this);
+					mTimerText.setText("Time: 0s");
+					onGameOver();
+				}else{
+					mTimerText.setText("Time: "+String.valueOf(Math.round(EndingTimer))+"s");
+				}
+				
 				if (left.collidesWith(wood)) {
 					woodBody.setLinearVelocity(2, 0);
 				}
 
 				if (right.collidesWith(wood)) {
 					woodBody.setLinearVelocity(-2, 0);
+				}
+				
+				if((this.noSoundTime>0.5) && (ball.collidesWith(roof) || ball.collidesWith(left) || ball.collidesWith(right) || ball.collidesWith(ground) ||ball.collidesWith(wood))){
+					PhysicsBall.this.mHitSound.play();
+					this.noSoundTime=0;
+				}else{
+					this.noSoundTime+=pSecondsElapsed;
 				}
 
 				if (nail.collidesWith(ball)) {
@@ -420,6 +487,12 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 
 	private void initText() {
 		/* The ScoreText showing how many points the pEntity scored. */
+		this.mTimerText = new Text(CAMERA_WIDTH*6/10,5,this.mFont,"Time:60s","Time:60s".length(),this.getVertexBufferObjectManager());
+		this.mTimerText.setBlendFunction(GLES20.GL_SRC_ALPHA,
+				GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		this.mTimerText.setAlpha(0.5f);
+		this.mScene.getChildByIndex(LAYER_SCORE).attachChild(mTimerText);
+		
 		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0",
 				"Score: XXXX".length(), this.getVertexBufferObjectManager());
 		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA,
@@ -472,7 +545,6 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	private void onGameOver() {
 		// this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mGameOverText);
 		this.ballBody.setLinearVelocity(0, 0);
-		this.mScoreText.setText("Game Over ! ");
 		this.mGameRunning = false;
 	}
 
