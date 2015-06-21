@@ -15,6 +15,7 @@ import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.FillResolutionPolicy;
+import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.Entity;
 import org.andengine.entity.IEntity;
 import org.andengine.entity.modifier.AlphaModifier;
@@ -95,7 +96,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	protected boolean mGameRunning;
 	private Camera mCamera;
 	private BitmapTextureAtlas mBitmapTextureAtlas;
-	private TiledTextureRegion mCircleFaceTextureRegion;
+	private TiledTextureRegion mBallTextureRegion;
 	private TiledTextureRegion mFireTextureRegion;
 	private TiledTextureRegion mBoomTextureRegion;
 	private TiledTextureRegion mCoinTextureRegion;
@@ -146,7 +147,8 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 
 		final EngineOptions engineOptions = new EngineOptions(true,
-				ScreenOrientation.LANDSCAPE_FIXED, new FillResolutionPolicy(),
+				ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(
+						CAMERA_WIDTH, CAMERA_HEIGHT),
 				this.mCamera);
 		engineOptions.getTouchOptions().setNeedsMultiTouch(true);
 		if (MultiTouch.isSupported(this)) {
@@ -185,27 +187,29 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(
-				this.getTextureManager(), 512, 1024, TextureOptions.BILINEAR);
-		this.mCircleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory
-				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
-						"face_circle_tiled.png", 0, 0, 2, 1); // 64x32
+				this.getTextureManager(), 1024, 512, TextureOptions.BILINEAR);
+		//第一行, 504 x 65
 		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory
-				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0,
-						32); // 128x18
+				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0, 0); // 128x18
 		this.mNailTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"nail_down.png", 0, 50); // 26x59
+						"nail_down.png", 128, 0); // 26x59
+		this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this, 
+						"smallCoin.png", 154, 0, 4, 2);	// 126x65
+		this.mBallTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
+						"DragonBalls.png", 280, 0, 3, 1); // 224 x 32
 		
-		new BitmapTextureAtlas(
-				this.getTextureManager(), 512, 1024, TextureOptions.BILINEAR);
+		//第二行， 680 x 366
 		this.mFireTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
-						"fire.png", 0, 110, 6, 2); // 360x356
+						"fire.png", 0, 65, 6, 2); // 360x356
 		this.mBoomTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
-						"boom.png", 0, 500, 5, 2); // 320x366
-		this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory
-				.createTiledFromAsset(this.mBitmapTextureAtlas, this, "smallCoin.png", 0, 870, 4, 2);
+						"boom.png", 360, 65, 5, 2); // 320x366
+		
+		
 		
 		this.mOnScreenControlTexture = new BitmapTextureAtlas(
 				this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
@@ -220,13 +224,13 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mBitmapTextureAtlas.load();
 
 		this.mBackgroundTexture = new BitmapTextureAtlas(
-				this.getTextureManager(), 1024, 2048);
+				this.getTextureManager(), 1024, 1024);
 		this.mBackgroundTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBackgroundTexture, this,
-						"background.jpg", 0, 0);
+						"background.jpg", 0, 0);	// 1024x768
 		this.mCloudTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBackgroundTexture, this, "cloud.png", 0,
-						768);
+						768);		// 999x250
 		this.mBackgroundTexture.load();
 
 		SoundFactory.setAssetBasePath("music/");
@@ -256,10 +260,6 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		for (int i = 0; i < LAYER_COUNT; i++) {
 			this.mScene.attachChild(new Entity());
 		}
-		// this.mScene.setBackgroundEnabled(false);
-		// this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(new
-		// Sprite(0, 0, this.mBackgroundTextureRegion,
-		// this.getVertexBufferObjectManager()));
 		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(
 				0, 0, 0, 5);
 		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f,
@@ -356,12 +356,15 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(nail);
 
 		// 创建火焰
-		final AnimatedSprite fire = new AnimatedSprite(320, CAMERA_HEIGHT - 64,
-				this.mFireTextureRegion, this.getVertexBufferObjectManager());
-		fire.animate(100);
+		for(int i=0;i<800;i+=100){
+			final AnimatedSprite fire = new AnimatedSprite(20+i, CAMERA_HEIGHT - 64,
+					this.mFireTextureRegion, this.getVertexBufferObjectManager());
+			fire.animate(100);
+			this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(fire);
+		}
+		
 		
 		// 创建金币
-		new ArrayList<AnimatedSprite>();
 		ArrayList<Position> coinsPositions=generateCoinPos();
 		for (Position p:coinsPositions){
 			AnimatedSprite coin = new AnimatedSprite(p.getX(), p.getY(), this.mCoinTextureRegion, this.getVertexBufferObjectManager());  
@@ -378,7 +381,6 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(left);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(right);
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(wood);
-		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(fire);
 
 		// 创建刚体与精灵的物理连接件，并允许刚体和物理世界改变精灵位置，两个操控版都是靠改变刚体状态来间接改变精灵状态
 		this.mScene.setTouchAreaBindingOnActionDownEnabled(true);
@@ -679,7 +681,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		// 创建小球
 		float x = ((float) Math.random()) * CAMERA_WIDTH;
 		float y = ((float) Math.random()) * CAMERA_HEIGHT;
-		ball = new AnimatedSprite(x, y, this.mCircleFaceTextureRegion,
+		ball = new AnimatedSprite(x, y, this.mBallTextureRegion,
 				this.getVertexBufferObjectManager());
 		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, ball,
 				BodyType.DynamicBody, BALL_FIXTURE_DEF);
@@ -694,7 +696,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	private void displayBoom(float x, float y) {
 		final AnimatedSprite boom = new AnimatedSprite(x, y-160, this.mBoomTextureRegion,
 				this.getVertexBufferObjectManager());
-		boom.animate(100, false, new  IAnimationListener(){
+		boom.animate(50, false, new  IAnimationListener(){
 
 			@Override
 			public void onAnimationStarted(AnimatedSprite pAnimatedSprite,
@@ -783,8 +785,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 				LoopEntityModifier textModifier =  
 			            new LoopEntityModifier(  
 			                    //EntityModifier的监听，通知LoopEntityModifier的开始和结束  
-			                    new coinModifierListener(mText),  
-			                    1,  
+			            		null,1,  
 			                    //循环的监听，通知每次循环的开始和结束  
 			                    new ILoopEntityModifierListener() {  
 			                        @Override  
@@ -839,30 +840,4 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		}
 	}
 	
-	private class coinModifierListener implements IEntityModifierListener{
-		public coinModifierListener(Text text){
-		}
-
-		@Override
-		public void onModifierStarted(IModifier<IEntity> pModifier,
-				IEntity pItem) {
-			runOnUpdateThread(new Runnable() {
-				@Override
-				public void run() {
-					//iText.detachSelf();
-				}});
-			
-			
-		}
-
-		@Override
-		public void onModifierFinished(IModifier<IEntity> pModifier,
-				IEntity pItem) {
-			
-			
-		}
-
-	
-		
-	}
 }
