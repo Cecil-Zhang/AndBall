@@ -3,6 +3,7 @@ package com.nju.andball;
 import static org.andengine.extension.physics.box2d.util.constants.PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.andengine.audio.sound.Sound;
 import org.andengine.audio.sound.SoundFactory;
@@ -55,6 +56,7 @@ import org.andengine.util.HorizontalAlign;
 import org.andengine.util.debug.Debug;
 import org.andengine.util.math.MathUtils;
 import org.andengine.util.modifier.IModifier;
+import org.andengine.util.modifier.IModifier.IModifierListener;
 import org.andengine.util.modifier.LoopModifier;
 
 import android.graphics.Color;
@@ -116,8 +118,9 @@ public class CoinMode extends SimpleBaseGameActivity implements IAccelerationLis
 		private Font mFont;
 		
 		private Sound mCoinSound;
-		private AnimatedSprite coin;
+		//private AnimatedSprite coin;
 		private LoopEntityModifier entityModifier;
+		private final int COIN_NUMBER=20;
 		
 		// ===========================================================
 		// Constructors
@@ -188,7 +191,7 @@ public class CoinMode extends SimpleBaseGameActivity implements IAccelerationLis
 			this.mHoleTextureRegion = BitmapTextureAtlasTextureRegionFactory
 					.createFromAsset(this.mBitmapTextureAtlas, this,
 							"nail_down.png", 0, 64);
-			this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "coin.png", 0, 128, 4, 2);
+			this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "smallCoin.png", 0, 128, 4, 2);
 			
 			this.mOnScreenControlTexture = new BitmapTextureAtlas(
 					this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
@@ -225,9 +228,6 @@ public class CoinMode extends SimpleBaseGameActivity implements IAccelerationLis
 			this.mPhysicsWorld = new PhysicsWorld(new Vector2(0,
 					SensorManager.GRAVITY_MARS), false);
 
-			
-		        
-		    
 			
 			this.initSprites();
 			this.addBall();
@@ -274,23 +274,16 @@ public class CoinMode extends SimpleBaseGameActivity implements IAccelerationLis
 			this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(nail);
 
 			//创建金币
-			coin = new AnimatedSprite(100, 100, this.mCoinTextureRegion, this.getVertexBufferObjectManager());  
-		     coin.animate(100);  
-		    coin.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-		    coin.registerUpdateHandler(new IUpdateHandler() {
-				
-				@Override
-				public void reset() {
-					// TODO Auto-generated method stub
-					
-				}
-				
-				@Override
-				public void onUpdate(float pSecondsElapsed) {
-					
-					
-				}
-			});
+			ArrayList<AnimatedSprite> coins=new ArrayList<AnimatedSprite>();
+			ArrayList<Position> coinsPositions=generateCoinPos();
+			for (Position p:coinsPositions){
+				AnimatedSprite coin = new AnimatedSprite(p.getX(), p.getY(), this.mCoinTextureRegion, this.getVertexBufferObjectManager());  
+			     coin.animate(100);  
+			    coin.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+			    coin.registerUpdateHandler(new GainCoinHandler(coin));
+			    this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(coin); 
+			}
+			
 		    
 		  //创建实体修改器，在业务线程中更新实体状态  
 	       entityModifier =  
@@ -365,7 +358,7 @@ public class CoinMode extends SimpleBaseGameActivity implements IAccelerationLis
 			this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(left);
 			this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(right);
 			this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(wood);
-			this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(coin);  
+			
 
 			// 创建刚体与精灵的物理连接件，并允许刚体和物理世界改变精灵位置，两个操控版都是靠改变刚体状态来间接改变精灵状态
 			this.mScene.setTouchAreaBindingOnActionDownEnabled(true);
@@ -398,15 +391,7 @@ public class CoinMode extends SimpleBaseGameActivity implements IAccelerationLis
 						
 					}
 
-					if (coin.collidesWith(ball)){
-						mCoinSound.play();
-						coin.registerEntityModifier(entityModifier);
-						mScene.unregisterTouchArea(coin);
-						mScene.getChildByIndex(LAYER_SPRITE).detachChild(coin);
-
-						System.gc();
-						
-					}
+					
 					// if(ground.collidesWith(face)){
 					// onGameOver();
 					// }
@@ -697,7 +682,129 @@ public class CoinMode extends SimpleBaseGameActivity implements IAccelerationLis
 					vertices, pBodyType, pFixtureDef);
 		}
 
+		private ArrayList<Position> generateCoinPos(){
+			ArrayList<Position> positions=new ArrayList<Position>();
+			for (int i=0;i<COIN_NUMBER;i++){
+				int xx=(int) Math.round( Math.random()*CAMERA_WIDTH);
+				int yy=(int) Math.round( Math.random()*(CAMERA_HEIGHT-100));
+				Position position=new Position(xx, yy);
+				positions.add(position);
+			}
+			return positions;
+		}
+		
 		// ===========================================================
 		// Inner and Anonymous Classes
 		// ===========================================================
+		public class GainCoinHandler implements IUpdateHandler {
+			AnimatedSprite mCoin;
+
+			public GainCoinHandler(AnimatedSprite coin){
+				mCoin=coin;
+			}
+			
+			@Override
+			public void onUpdate(float pSecondsElapsed) {
+				if (mCoin.collidesWith(ball)){
+					mCoinSound.play();
+					mCoin.registerEntityModifier(entityModifier);//这个变换几乎是没效果的
+					mScene.unregisterTouchArea(mCoin);
+					//mScene.getChildByIndex(LAYER_SPRITE).detachChild(coin);
+					runOnUpdateThread(new Runnable() {
+						@Override
+						public void run() {
+							mCoin.detachSelf();
+						}});
+					Text mText= new Text(mCoin.getX(), mCoin.getY()-10, mFont, "+5",
+							new TextOptions(HorizontalAlign.CENTER),
+							getVertexBufferObjectManager());
+					mScene.getChildByIndex(LAYER_SCORE).attachChild(mText);
+					LoopEntityModifier textModifier =  
+				            new LoopEntityModifier(  
+				                    //EntityModifier的监听，通知LoopEntityModifier的开始和结束  
+				                    new coinModifierListener(mText),  
+				                    1,  
+				                    //循环的监听，通知每次循环的开始和结束  
+				                    new ILoopEntityModifierListener() {  
+				                        @Override  
+				                        public void onLoopStarted(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
+				                        	CoinMode.this.runOnUiThread(new Runnable() {  
+				                                @Override  
+				                                public void run() {  
+				                                    
+				                                }  
+				                            });  
+				                        }  
+				  
+				                        @Override  
+				                        public void onLoopFinished(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
+				                        	CoinMode.this.runOnUiThread(new Runnable() {  
+				                                @Override  
+				                                public void run() {  
+				                                   
+				                                }  
+				                            });  
+				                        }  
+				                    },  
+				                    //循环Modifier中组合的Modifier，先按顺序执行  
+				                    new SequenceEntityModifier(  
+//				                          new RotationModifier(1, 0, 90),  
+				                    		new ParallelEntityModifier(new AlphaModifier(5, 1, 0),  
+				                    				new ScaleModifier(5, 1, 0.5f)),  
+				                            new DelayModifier(2)  
+				                            //并行执行  
+//				                            new ParallelEntityModifier(  
+//				                                    new ScaleModifier(3, 0.5f, 5),  
+//				                                    new RotationByModifier(3, 90)  
+//				                            ),  
+//				                            new ParallelEntityModifier(  
+//				                                    new ScaleModifier(3, 5, 1),  
+//				                                    new RotationModifier(3, 180, 0)  
+//				                            )  
+				                    )  
+				            );
+					mText.registerEntityModifier(textModifier);
+					mScore+=5;
+					mScoreText.setText("Score: " + mScore);
+					System.gc();
+					
+				}
+			}
+
+			@Override
+			public void reset() {
+				// TODO Auto-generated method stub
+				
+			}
+		}
+		
+		private class coinModifierListener implements IEntityModifierListener{
+			private Text iText;
+			
+			public coinModifierListener(Text text){
+				iText=text;
+			}
+
+			@Override
+			public void onModifierStarted(IModifier<IEntity> pModifier,
+					IEntity pItem) {
+				runOnUpdateThread(new Runnable() {
+					@Override
+					public void run() {
+						//iText.detachSelf();
+					}});
+				
+				
+			}
+
+			@Override
+			public void onModifierFinished(IModifier<IEntity> pModifier,
+					IEntity pItem) {
+				
+				
+			}
+
+		
+			
+		}
 }
