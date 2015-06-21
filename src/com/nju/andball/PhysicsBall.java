@@ -1,9 +1,7 @@
 package com.nju.andball;
 
-import static org.andengine.extension.physics.box2d.util.constants.PhysicsConstants.PIXEL_TO_METER_RATIO_DEFAULT;
-
 import java.io.IOException;
-import java.util.Random;
+import java.util.ArrayList;
 
 import org.andengine.audio.music.Music;
 import org.andengine.audio.music.MusicFactory;
@@ -17,18 +15,24 @@ import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.FillResolutionPolicy;
-import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.Entity;
+import org.andengine.entity.IEntity;
+import org.andengine.entity.modifier.AlphaModifier;
+import org.andengine.entity.modifier.DelayModifier;
+import org.andengine.entity.modifier.LoopEntityModifier;
+import org.andengine.entity.modifier.ParallelEntityModifier;
+import org.andengine.entity.modifier.RotationByModifier;
 import org.andengine.entity.modifier.RotationModifier;
 import org.andengine.entity.modifier.ScaleModifier;
-import org.andengine.entity.primitive.Line;
+import org.andengine.entity.modifier.SequenceEntityModifier;
+import org.andengine.entity.modifier.IEntityModifier.IEntityModifierListener;
+import org.andengine.entity.modifier.LoopEntityModifier.ILoopEntityModifierListener;
 import org.andengine.entity.primitive.Rectangle;
 import org.andengine.entity.scene.Scene;
 import org.andengine.entity.scene.background.AutoParallaxBackground;
-import org.andengine.entity.scene.background.Background;
 import org.andengine.entity.scene.background.ParallaxBackground.ParallaxEntity;
-import org.andengine.entity.shape.IAreaShape;
 import org.andengine.entity.sprite.AnimatedSprite;
+import org.andengine.entity.sprite.AnimatedSprite.IAnimationListener;
 import org.andengine.entity.sprite.Sprite;
 import org.andengine.entity.text.Text;
 import org.andengine.entity.text.TextOptions;
@@ -52,6 +56,8 @@ import org.andengine.ui.activity.SimpleBaseGameActivity;
 import org.andengine.util.HorizontalAlign;
 import org.andengine.util.debug.Debug;
 import org.andengine.util.math.MathUtils;
+import org.andengine.util.modifier.IModifier;
+import org.andengine.util.modifier.LoopModifier;
 
 import android.graphics.Color;
 import android.hardware.SensorManager;
@@ -63,7 +69,6 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
-import com.badlogic.gdx.physics.box2d.PolygonShape;
 
 public class PhysicsBall extends SimpleBaseGameActivity implements
 		IAccelerationListener {
@@ -91,7 +96,9 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	private Camera mCamera;
 	private BitmapTextureAtlas mBitmapTextureAtlas;
 	private TiledTextureRegion mCircleFaceTextureRegion;
-	private TiledTextureRegion mFireTexutreRegion;
+	private TiledTextureRegion mFireTextureRegion;
+	private TiledTextureRegion mBoomTextureRegion;
+	private TiledTextureRegion mCoinTextureRegion;
 	private ITextureRegion mWoodTextureRegion;
 	private ITextureRegion mNailTextureRegion;
 	private ITextureRegion mCloudTextureRegion;
@@ -117,6 +124,9 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	private Text mTimerText;
 	private Text mGameOverText;
 	private Font mFont;
+	private Sound mCoinSound;
+	private LoopEntityModifier entityModifier;
+	private final int COIN_NUMBER=20;
 
 	// ===========================================================
 	// Constructors
@@ -136,7 +146,8 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 
 		final EngineOptions engineOptions = new EngineOptions(true,
-				ScreenOrientation.LANDSCAPE_FIXED, new FillResolutionPolicy(), this.mCamera);
+				ScreenOrientation.LANDSCAPE_FIXED, new FillResolutionPolicy(),
+				this.mCamera);
 		engineOptions.getTouchOptions().setNeedsMultiTouch(true);
 		if (MultiTouch.isSupported(this)) {
 			if (MultiTouch.isSupportedDistinct(this)) {
@@ -174,18 +185,28 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(
-				this.getTextureManager(), 712, 712, TextureOptions.BILINEAR);
+				this.getTextureManager(), 512, 1024, TextureOptions.BILINEAR);
 		this.mCircleFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
 						"face_circle_tiled.png", 0, 0, 2, 1); // 64x32
 		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0,
-						32);	//  128x18
+						32); // 128x18
 		this.mNailTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"nail_down.png", 0, 64);  // 26x59
-		this.mFireTexutreRegion = BitmapTextureAtlasTextureRegionFactory
-				.createTiledFromAsset(this.mBitmapTextureAtlas, this, "fire.png", 0, 128, 6, 2); //  360x356
+						"nail_down.png", 0, 50); // 26x59
+		
+		new BitmapTextureAtlas(
+				this.getTextureManager(), 512, 1024, TextureOptions.BILINEAR);
+		this.mFireTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
+						"fire.png", 0, 110, 6, 2); // 360x356
+		this.mBoomTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
+						"boom.png", 0, 500, 5, 2); // 320x366
+		this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this, "smallCoin.png", 0, 870, 4, 2);
+		
 		this.mOnScreenControlTexture = new BitmapTextureAtlas(
 				this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
 		this.mOnScreenControlBaseTextureRegion = BitmapTextureAtlasTextureRegionFactory
@@ -197,22 +218,30 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mOnScreenControlTexture.load();
 
 		this.mBitmapTextureAtlas.load();
-		
-		this.mBackgroundTexture = new BitmapTextureAtlas(this.getTextureManager(), 1024, 2048);
-		this.mBackgroundTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBackgroundTexture, this, "background.jpg", 0, 0);
-		this.mCloudTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBackgroundTexture, this, "cloud.png", 0, 768);
+
+		this.mBackgroundTexture = new BitmapTextureAtlas(
+				this.getTextureManager(), 1024, 2048);
+		this.mBackgroundTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mBackgroundTexture, this,
+						"background.jpg", 0, 0);
+		this.mCloudTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mBackgroundTexture, this, "cloud.png", 0,
+						768);
 		this.mBackgroundTexture.load();
-		
+
 		SoundFactory.setAssetBasePath("music/");
 		try {
-			this.mHitSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "ballRebound.wav");
+			this.mHitSound = SoundFactory.createSoundFromAsset(
+					this.mEngine.getSoundManager(), this, "ballRebound.wav");
+			this.mCoinSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "coin.mp3");  
 		} catch (final IOException e) {
 			Debug.e(e);
 		}
-		
+
 		MusicFactory.setAssetBasePath("music/");
 		try {
-			this.mBackgroundMusic = MusicFactory.createMusicFromAsset(this.mEngine.getMusicManager(), this, "quitVillage.mid");
+			this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
+					this.mEngine.getMusicManager(), this, "quitVillage.mid");
 			this.mBackgroundMusic.setLooping(true);
 		} catch (final IOException e) {
 			Debug.e(e);
@@ -227,18 +256,28 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		for (int i = 0; i < LAYER_COUNT; i++) {
 			this.mScene.attachChild(new Entity());
 		}
-//		this.mScene.setBackgroundEnabled(false);
-//		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(new Sprite(0, 0, this.mBackgroundTextureRegion, this.getVertexBufferObjectManager()));
-		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(0, 0, 0, 5);
-		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f, new Sprite(0, CAMERA_HEIGHT - this.mBackgroundTextureRegion.getHeight(), this.mBackgroundTextureRegion, this.getVertexBufferObjectManager())));
-		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-5.0f, new Sprite(0, 80, this.mCloudTextureRegion, this.getVertexBufferObjectManager())));
+		// this.mScene.setBackgroundEnabled(false);
+		// this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(new
+		// Sprite(0, 0, this.mBackgroundTextureRegion,
+		// this.getVertexBufferObjectManager()));
+		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(
+				0, 0, 0, 5);
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f,
+				new Sprite(0, CAMERA_HEIGHT
+						- this.mBackgroundTextureRegion.getHeight(),
+						this.mBackgroundTextureRegion, this
+								.getVertexBufferObjectManager())));
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-5.0f,
+				new Sprite(0, 80, this.mCloudTextureRegion, this
+						.getVertexBufferObjectManager())));
 		this.mScene.setBackground(autoParallaxBackground);
-		
+
 		// 创建一个物理世界，重力与地球重力相等
 		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0,
 				SensorManager.GRAVITY_MARS), false);
-
-		this.mBackgroundMusic.play();
+		if (Constants.musicSetting) {
+			this.mBackgroundMusic.play();
+		}
 		this.initSprites();
 		this.addBall();
 		this.initOnScreenControls();
@@ -246,6 +285,39 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 
 		return this.mScene;
 	}
+	
+
+	@Override
+	public void onAccelerationAccuracyChanged(
+			final AccelerationData pAccelerationData) {
+
+	}
+
+	@Override
+	public void onAccelerationChanged(final AccelerationData pAccelerationData) {
+		// 根据手机重力感应器的状态改变物理世界的重力
+		final Vector2 gravity = Vector2Pool.obtain(pAccelerationData.getX(),
+				pAccelerationData.getY());
+		this.mPhysicsWorld.setGravity(gravity);
+		Vector2Pool.recycle(gravity);
+	}
+
+	@Override
+	public void onResumeGame() {
+		super.onResumeGame();
+
+		this.enableAccelerationSensor(this);
+	}
+
+	@Override
+	public void onPauseGame() {
+		super.onPauseGame();
+		this.disableAccelerationSensor();
+	}
+	
+	// ===========================================================
+	// Methods
+	// ===========================================================
 
 	private void initSprites() {
 		final VertexBufferObjectManager vertexBufferObjectManager = this
@@ -282,10 +354,23 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		nail = new Sprite(CAMERA_WIDTH / 2, 0, this.mNailTextureRegion,
 				this.getVertexBufferObjectManager());
 		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(nail);
-		
+
 		// 创建火焰
-		final AnimatedSprite fire = new AnimatedSprite(320, CAMERA_HEIGHT-64, this.mFireTexutreRegion, this.getVertexBufferObjectManager());
+		final AnimatedSprite fire = new AnimatedSprite(320, CAMERA_HEIGHT - 64,
+				this.mFireTextureRegion, this.getVertexBufferObjectManager());
 		fire.animate(100);
+		
+		// 创建金币
+		new ArrayList<AnimatedSprite>();
+		ArrayList<Position> coinsPositions=generateCoinPos();
+		for (Position p:coinsPositions){
+			AnimatedSprite coin = new AnimatedSprite(p.getX(), p.getY(), this.mCoinTextureRegion, this.getVertexBufferObjectManager());  
+		     coin.animate(100);  
+		    coin.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		    coin.registerUpdateHandler(new GainCoinHandler(coin));
+		    this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(coin); 
+		}
+		this.createModifier();
 
 		// 将精灵加入到场景中
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ground);
@@ -303,8 +388,8 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 
 		// 注册木板与左右边界的碰撞检测，检测到碰撞时反弹木板（KinematicBody与StaticBody不会发生碰撞）
 		mScene.registerUpdateHandler(new IUpdateHandler() {
-			private float noSoundTime=0;
-			
+			private float noSoundTime = 0;
+
 			@Override
 			public void reset() {
 			}
@@ -312,14 +397,15 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 			@Override
 			public void onUpdate(final float pSecondsElapsed) {
 				EndingTimer -= pSecondsElapsed;
-				if(EndingTimer<=0){
+				if (EndingTimer <= 0) {
 					mScene.unregisterUpdateHandler(this);
 					mTimerText.setText("Time: 0s");
 					onGameOver();
-				}else{
-					mTimerText.setText("Time: "+String.valueOf(Math.round(EndingTimer))+"s");
+				} else {
+					mTimerText.setText("Time: "
+							+ String.valueOf(Math.round(EndingTimer)) + "s");
 				}
-				
+
 				if (left.collidesWith(wood)) {
 					woodBody.setLinearVelocity(2, 0);
 				}
@@ -327,12 +413,19 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 				if (right.collidesWith(wood)) {
 					woodBody.setLinearVelocity(-2, 0);
 				}
-				
-				if((this.noSoundTime>0.5) && (ball.collidesWith(roof) || ball.collidesWith(left) || ball.collidesWith(right) || ball.collidesWith(ground) ||ball.collidesWith(wood))){
-					PhysicsBall.this.mHitSound.play();
-					this.noSoundTime=0;
-				}else{
-					this.noSoundTime+=pSecondsElapsed;
+
+				if (Constants.musicSetting) {
+					if ((this.noSoundTime > 0.5)
+							&& (ball.collidesWith(roof)
+									|| ball.collidesWith(left)
+									|| ball.collidesWith(right)
+									|| ball.collidesWith(ground) || ball
+										.collidesWith(wood))) {
+						PhysicsBall.this.mHitSound.play();
+						this.noSoundTime = 0;
+					} else {
+						this.noSoundTime += pSecondsElapsed;
+					}
 				}
 
 				if (nail.collidesWith(ball)) {
@@ -341,7 +434,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 					mScoreText.setText("Score: " + mScore);
 					moveNail();
 					addBall();
-					
+
 				}
 
 				// if(ground.collidesWith(face)){
@@ -349,56 +442,6 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 				// }
 			}
 		});
-	}
-
-	private void moveNail(){
-		int seed=(int) Math.round( Math.random()*4);
-		switch(seed%4){
-		case 0:
-			//move nail to roof
-			nail.setPosition(((float) Math.random())*CAMERA_WIDTH, 0);
-			nail.setRotation(0);
-			break;
-		case 1:
-			//move nail to left
-			nail.setPosition(10, ((float) Math.random())*CAMERA_HEIGHT);
-			nail.setRotation(270f);
-			break;
-		case 2:
-			//move nail to right
-			nail.setPosition(CAMERA_WIDTH-30, ((float) Math.random())*CAMERA_HEIGHT);
-			nail.setRotation(90f);
-			break;
-		case 3:
-			nail.setPosition(((float) Math.random())*CAMERA_WIDTH, CAMERA_HEIGHT-64);
-			nail.setRotation(180f);
-		}
-	}
-	
-	private void removeBall() {
-		final PhysicsConnector facePhysicsConnector = mPhysicsWorld
-				.getPhysicsConnectorManager().findPhysicsConnectorByShape(ball);
-
-		mPhysicsWorld.unregisterPhysicsConnector(facePhysicsConnector);
-		mPhysicsWorld.destroyBody(facePhysicsConnector.getBody());
-
-		mScene.unregisterTouchArea(ball);
-		mScene.getChildByIndex(LAYER_SPRITE).detachChild(ball);
-
-		System.gc();
-	}
-
-	private void addBall() {
-		// 创建小球
-		ball = new AnimatedSprite(((float) Math.random())*CAMERA_WIDTH, ((float) Math.random())*CAMERA_HEIGHT, this.mCircleFaceTextureRegion,
-				this.getVertexBufferObjectManager());
-		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, ball,
-				BodyType.DynamicBody, BALL_FIXTURE_DEF);
-
-		ball.animate(200);
-		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(ball,
-				ballBody, true, true));
-		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ball);
 	}
 	
 
@@ -487,12 +530,14 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 
 	private void initText() {
 		/* The ScoreText showing how many points the pEntity scored. */
-		this.mTimerText = new Text(CAMERA_WIDTH*6/10,5,this.mFont,"Time:60s","Time:60s".length(),this.getVertexBufferObjectManager());
+		this.mTimerText = new Text(CAMERA_WIDTH * 6 / 10, 5, this.mFont,
+				"Time:60s", "Time:60s".length(),
+				this.getVertexBufferObjectManager());
 		this.mTimerText.setBlendFunction(GLES20.GL_SRC_ALPHA,
 				GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		this.mTimerText.setAlpha(0.5f);
 		this.mScene.getChildByIndex(LAYER_SCORE).attachChild(mTimerText);
-		
+
 		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0",
 				"Score: XXXX".length(), this.getVertexBufferObjectManager());
 		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA,
@@ -513,33 +558,193 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 				720));
 	}
 
-	@Override
-	public void onAccelerationAccuracyChanged(
-			final AccelerationData pAccelerationData) {
 
+	
+	private void createModifier(){
+		//创建实体修改器，在业务线程中更新实体状态  
+	       entityModifier =  
+	            new LoopEntityModifier(  
+	                    //EntityModifier的监听，通知LoopEntityModifier的开始和结束  
+	                    new IEntityModifierListener() {  
+	                        @Override  
+	                        public void onModifierStarted(final IModifier<IEntity> pModifier, final IEntity pItem) {  
+	                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
+	                                @Override  
+	                                public void run() {  
+	                                    Toast.makeText(PhysicsBall.this, "Sequence started.", Toast.LENGTH_SHORT).show();  
+	                                }  
+	                            });  
+	                        }  
+	  
+	                        @Override  
+	                        public void onModifierFinished(final IModifier<IEntity> pEntityModifier, final IEntity pEntity) {  
+	                            PhysicsBall.this.runOnUiThread(new Runnable() {  
+	                                @Override  
+	                                public void run() {  
+	                                    Toast.makeText(PhysicsBall.this, "Sequence finished.", Toast.LENGTH_SHORT).show();  
+	                                }  
+	                            });  
+	                        }  
+	                    },  
+	                    2,  
+	                    //循环的监听，通知每次循环的开始和结束  
+	                    new ILoopEntityModifierListener() {  
+	                        @Override  
+	                        public void onLoopStarted(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
+	                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
+	                                @Override  
+	                                public void run() {  
+	                                    Toast.makeText(PhysicsBall.this, "Loop: '" + (pLoop + 1) + "' of '" + pLoopCount + "' started.", Toast.LENGTH_SHORT).show();  
+	                                }  
+	                            });  
+	                        }  
+	  
+	                        @Override  
+	                        public void onLoopFinished(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
+	                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
+	                                @Override  
+	                                public void run() {  
+	                                    Toast.makeText(PhysicsBall.this, "Loop: '" + (pLoop + 1) + "' of '" + pLoopCount + "' finished.", Toast.LENGTH_SHORT).show();  
+	                                }  
+	                            });  
+	                        }  
+	                    },  
+	                    //循环Modifier中组合的Modifier，先按顺序执行  
+	                    new SequenceEntityModifier(  
+	                            new AlphaModifier(2, 1, 0),  
+	                            new AlphaModifier(1, 0, 1),  
+	                            new ScaleModifier(2, 1, 0.5f),  
+	                            new DelayModifier(0.5f),  
+	                            //并行执行  
+	                            new ParallelEntityModifier(  
+	                                    new ScaleModifier(3, 0.5f, 5),  
+	                                    new RotationByModifier(3, 90)  
+	                            ),  
+	                            new ParallelEntityModifier(  
+	                                    new ScaleModifier(3, 5, 1),  
+	                                    new RotationModifier(3, 180, 0)  
+	                            )  
+	                    )  
+	            );
 	}
 
-	@Override
-	public void onAccelerationChanged(final AccelerationData pAccelerationData) {
-		// 根据手机重力感应器的状态改变物理世界的重力
-		final Vector2 gravity = Vector2Pool.obtain(pAccelerationData.getX(),
-				pAccelerationData.getY());
-		this.mPhysicsWorld.setGravity(gravity);
-		Vector2Pool.recycle(gravity);
+	private void moveNail() {
+		int seed = (int) Math.round(Math.random() * 4);
+		float x,y;
+		switch (seed % 4) {
+		case 0:
+			// move nail to roof
+			x = ((float) Math.random()) * CAMERA_WIDTH;
+			nail.setPosition(x , 0);
+			nail.setRotation(0);
+			Log.i("nail", String.valueOf(x)+", 0");
+			break;
+		case 1:
+			// move nail to left
+			y = ((float) Math.random() * CAMERA_HEIGHT);
+			nail.setPosition(10, y);
+			nail.setRotation(270f);
+			Log.i("nail", "10, "+String.valueOf(y));
+			break;
+		case 2:
+			// move nail to right
+			y = ((float) Math.random() * CAMERA_HEIGHT);
+			nail.setPosition(CAMERA_WIDTH - 30, y);
+			nail.setRotation(90f);
+			Log.i("nail", String.valueOf(CAMERA_WIDTH -30)+", "+String.valueOf(y));
+			break;
+		case 3:
+			x = ((float) Math.random()) * CAMERA_WIDTH;
+			nail.setPosition(x, CAMERA_HEIGHT - 64);
+			nail.setRotation(180f);
+			Log.i("nail", String.valueOf(x)+", "+String.valueOf(CAMERA_HEIGHT - 64));
+		}
 	}
 
-	@Override
-	public void onResumeGame() {
-		super.onResumeGame();
+	private void removeBall() {
+		displayBoom(ball.getX(),ball.getY());
+		final PhysicsConnector facePhysicsConnector = mPhysicsWorld
+				.getPhysicsConnectorManager().findPhysicsConnectorByShape(ball);
 
-		this.enableAccelerationSensor(this);
+		mPhysicsWorld.unregisterPhysicsConnector(facePhysicsConnector);
+		mPhysicsWorld.destroyBody(facePhysicsConnector.getBody());
+
+		mScene.getChildByIndex(LAYER_SPRITE).detachChild(ball);
+		
+		System.gc();
+		
 	}
 
-	@Override
-	public void onPauseGame() {
-		super.onPauseGame();
+	private void addBall() {
+		// 创建小球
+		float x = ((float) Math.random()) * CAMERA_WIDTH;
+		float y = ((float) Math.random()) * CAMERA_HEIGHT;
+		ball = new AnimatedSprite(x, y, this.mCircleFaceTextureRegion,
+				this.getVertexBufferObjectManager());
+		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, ball,
+				BodyType.DynamicBody, BALL_FIXTURE_DEF);
 
-		this.disableAccelerationSensor();
+		ball.animate(200);
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(ball,
+				ballBody, true, true));
+		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ball);
+		Log.i("ball", String.valueOf(x)+", "+String.valueOf(y));
+	}
+
+	private void displayBoom(float x, float y) {
+		final AnimatedSprite boom = new AnimatedSprite(x, y-160, this.mBoomTextureRegion,
+				this.getVertexBufferObjectManager());
+		boom.animate(100, false, new  IAnimationListener(){
+
+			@Override
+			public void onAnimationStarted(AnimatedSprite pAnimatedSprite,
+					int pInitialLoopCount) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void onAnimationFrameChanged(AnimatedSprite pAnimatedSprite,
+					int pOldFrameIndex, int pNewFrameIndex) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void onAnimationLoopFinished(AnimatedSprite pAnimatedSprite,
+					int pRemainingLoopCount, int pInitialLoopCount) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void onAnimationFinished(AnimatedSprite pAnimatedSprite) {
+				// TODO Auto-generated method stub
+				runOnUpdateThread(new Runnable(){
+
+					@Override
+					public void run() {
+						// TODO Auto-generated method stub
+						mScene.getChildByIndex(LAYER_BACKGROUND).detachChild(boom);
+						System.gc();
+					}
+					
+				});
+			}
+			
+		});
+		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(boom);
+	}
+	
+	private ArrayList<Position> generateCoinPos(){
+		ArrayList<Position> positions=new ArrayList<Position>();
+		for (int i=0;i<COIN_NUMBER;i++){
+			int xx=(int) Math.round( Math.random()*CAMERA_WIDTH);
+			int yy=(int) Math.round( Math.random()*(CAMERA_HEIGHT-100));
+			Position position=new Position(xx, yy);
+			positions.add(position);
+		}
+		return positions;
 	}
 
 	private void onGameOver() {
@@ -549,96 +754,115 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 	}
 
 	// ===========================================================
-	// Methods
-	// ===========================================================
-
-	/**
-	 * Creates a {@link Body} based on a {@link PolygonShape} in the form of a
-	 * triangle:
-	 * 
-	 * <pre>
-	 *  /\
-	 * /__\
-	 * </pre>
-	 */
-	private static Body createTriangleBody(final PhysicsWorld pPhysicsWorld,
-			final IAreaShape pAreaShape, final BodyType pBodyType,
-			final FixtureDef pFixtureDef) {
-		/*
-		 * Remember that the vertices are relative to the center-coordinates of
-		 * the Shape.
-		 */
-		final float halfWidth = pAreaShape.getWidthScaled() * 0.5f
-				/ PIXEL_TO_METER_RATIO_DEFAULT;
-		final float halfHeight = pAreaShape.getHeightScaled() * 0.5f
-				/ PIXEL_TO_METER_RATIO_DEFAULT;
-
-		final float top = -halfHeight;
-		final float bottom = halfHeight;
-		final float left = -halfHeight;
-		final float centerX = 0;
-		final float right = halfWidth;
-
-		final Vector2[] vertices = { new Vector2(centerX, top),
-				new Vector2(right, bottom), new Vector2(left, bottom) };
-
-		return PhysicsFactory.createPolygonBody(pPhysicsWorld, pAreaShape,
-				vertices, pBodyType, pFixtureDef);
-	}
-
-	/**
-	 * Creates a {@link Body} based on a {@link PolygonShape} in the form of a
-	 * hexagon:
-	 * 
-	 * <pre>
-	 *  /\
-	 * /  \
-	 * |  |
-	 * |  |
-	 * \  /
-	 *  \/
-	 * </pre>
-	 */
-	private static Body createHexagonBody(final PhysicsWorld pPhysicsWorld,
-			final IAreaShape pAreaShape, final BodyType pBodyType,
-			final FixtureDef pFixtureDef) {
-		/*
-		 * Remember that the vertices are relative to the center-coordinates of
-		 * the Shape.
-		 */
-		final float halfWidth = pAreaShape.getWidthScaled() * 0.5f
-				/ PIXEL_TO_METER_RATIO_DEFAULT;
-		final float halfHeight = pAreaShape.getHeightScaled() * 0.5f
-				/ PIXEL_TO_METER_RATIO_DEFAULT;
-
-		/*
-		 * The top and bottom vertex of the hexagon are on the bottom and top of
-		 * hexagon-sprite.
-		 */
-		final float top = -halfHeight;
-		final float bottom = halfHeight;
-
-		final float centerX = 0;
-
-		/*
-		 * The left and right vertices of the heaxgon are not on the edge of the
-		 * hexagon-sprite, so we need to inset them a little.
-		 */
-		final float left = -halfWidth + 2.5f / PIXEL_TO_METER_RATIO_DEFAULT;
-		final float right = halfWidth - 2.5f / PIXEL_TO_METER_RATIO_DEFAULT;
-		final float higher = top + 8.25f / PIXEL_TO_METER_RATIO_DEFAULT;
-		final float lower = bottom - 8.25f / PIXEL_TO_METER_RATIO_DEFAULT;
-
-		final Vector2[] vertices = { new Vector2(centerX, top),
-				new Vector2(right, higher), new Vector2(right, lower),
-				new Vector2(centerX, bottom), new Vector2(left, lower),
-				new Vector2(left, higher) };
-
-		return PhysicsFactory.createPolygonBody(pPhysicsWorld, pAreaShape,
-				vertices, pBodyType, pFixtureDef);
-	}
-
-	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================
+	
+	public class GainCoinHandler implements IUpdateHandler {
+		AnimatedSprite mCoin;
+
+		public GainCoinHandler(AnimatedSprite coin){
+			mCoin=coin;
+		}
+		
+		@Override
+		public void onUpdate(float pSecondsElapsed) {
+			if (mCoin.collidesWith(ball)){
+				mCoinSound.play();
+				mCoin.registerEntityModifier(entityModifier);//这个变换几乎是没效果的
+				mScene.unregisterTouchArea(mCoin);
+				//mScene.getChildByIndex(LAYER_SPRITE).detachChild(coin);
+				runOnUpdateThread(new Runnable() {
+					@Override
+					public void run() {
+						mCoin.detachSelf();
+					}});
+				Text mText= new Text(mCoin.getX(), mCoin.getY()-10, mFont, "+5",
+						new TextOptions(HorizontalAlign.CENTER),
+						getVertexBufferObjectManager());
+				mScene.getChildByIndex(LAYER_SCORE).attachChild(mText);
+				LoopEntityModifier textModifier =  
+			            new LoopEntityModifier(  
+			                    //EntityModifier的监听，通知LoopEntityModifier的开始和结束  
+			                    new coinModifierListener(mText),  
+			                    1,  
+			                    //循环的监听，通知每次循环的开始和结束  
+			                    new ILoopEntityModifierListener() {  
+			                        @Override  
+			                        public void onLoopStarted(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
+			                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
+			                                @Override  
+			                                public void run() {  
+			                                    
+			                                }  
+			                            });  
+			                        }  
+			  
+			                        @Override  
+			                        public void onLoopFinished(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
+			                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
+			                                @Override  
+			                                public void run() {  
+			                                   
+			                                }  
+			                            });  
+			                        }  
+			                    },  
+			                    //循环Modifier中组合的Modifier，先按顺序执行  
+			                    new SequenceEntityModifier(  
+//			                          new RotationModifier(1, 0, 90),  
+			                    		new ParallelEntityModifier(new AlphaModifier(5, 1, 0),  
+			                    				new ScaleModifier(5, 1, 0.5f)),  
+			                            new DelayModifier(2)  
+			                            //并行执行  
+//			                            new ParallelEntityModifier(  
+//			                                    new ScaleModifier(3, 0.5f, 5),  
+//			                                    new RotationByModifier(3, 90)  
+//			                            ),  
+//			                            new ParallelEntityModifier(  
+//			                                    new ScaleModifier(3, 5, 1),  
+//			                                    new RotationModifier(3, 180, 0)  
+//			                            )  
+			                    )  
+			            );
+				mText.registerEntityModifier(textModifier);
+				mScore+=5;
+				mScoreText.setText("Score: " + mScore);
+				System.gc();
+				
+			}
+		}
+
+		@Override
+		public void reset() {
+			// TODO Auto-generated method stub
+			
+		}
+	}
+	
+	private class coinModifierListener implements IEntityModifierListener{
+		public coinModifierListener(Text text){
+		}
+
+		@Override
+		public void onModifierStarted(IModifier<IEntity> pModifier,
+				IEntity pItem) {
+			runOnUpdateThread(new Runnable() {
+				@Override
+				public void run() {
+					//iText.detachSelf();
+				}});
+			
+			
+		}
+
+		@Override
+		public void onModifierFinished(IModifier<IEntity> pModifier,
+				IEntity pItem) {
+			
+			
+		}
+
+	
+		
+	}
 }
