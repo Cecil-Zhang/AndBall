@@ -117,6 +117,8 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private boolean mPlaceOnScreenControlsAtDifferentVerticalLocations = false;
 	private Scene mScene;
 	private Sound mHitSound;
+	private Sound mCoinSound;
+	private Sound boomSound;
 	private Music mBackgroundMusic;
 
 	private PhysicsWorld mPhysicsWorld;
@@ -130,7 +132,6 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private Text mTimerText;
 	private Text mGameOverText;
 	private Font mFont;
-	private Sound mCoinSound;
 	private LoopEntityModifier entityModifier;
 	private final int COIN_NUMBER=20;
 
@@ -251,6 +252,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				this.mHitSound = SoundFactory.createSoundFromAsset(
 						this.mEngine.getSoundManager(), this, "ballRebound.wav");
 				this.mCoinSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "coin.mp3");  
+				this.boomSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "dragonball.wav");
 			} catch (final IOException e) {
 				Debug.e(e);
 			}
@@ -720,6 +722,9 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private void displayBoom(float x, float y) {
 		final AnimatedSprite boom = new AnimatedSprite(x, y-160, this.mBoomTextureRegion,
 				this.getVertexBufferObjectManager());
+		if(soundEnabled){
+			boomSound.play();
+		}
 		boom.animate(50, false, new  IAnimationListener(){
 
 			@Override
