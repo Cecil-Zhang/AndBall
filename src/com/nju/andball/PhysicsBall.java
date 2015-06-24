@@ -98,6 +98,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	// Fields
 	// ===========================================================
 	protected boolean mGameRunning;
+	private boolean soundEnabled;
 	private Camera mCamera;
 	private BitmapTextureAtlas mBitmapTextureAtlas;
 	private TiledTextureRegion mBallTextureRegion;
@@ -173,8 +174,13 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					"Sorry your device does NOT support MultiTouch!\n\n(Falling back to SingleTouch.)\n\nControls are placed at different vertical locations.",
 					Toast.LENGTH_LONG).show();
 		}
-		engineOptions.getAudioOptions().setNeedsSound(true);
-		engineOptions.getAudioOptions().setNeedsMusic(true);
+		if(Constants.getInstance(this).getSoundEnabled()){
+			engineOptions.getAudioOptions().setNeedsSound(true);
+			engineOptions.getAudioOptions().setNeedsMusic(true);
+			this.soundEnabled = true;
+		}else{
+			this.soundEnabled = false;
+		}
 		engineOptions.setWakeLockOptions(WakeLockOptions.SCREEN_ON);
 		return engineOptions;
 	}
@@ -238,22 +244,25 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 						768);		// 999x250
 		this.mBackgroundTexture.load();
 		pProgressListener.onProgressChanged(90);
-		SoundFactory.setAssetBasePath("music/");
-		try {
-			this.mHitSound = SoundFactory.createSoundFromAsset(
-					this.mEngine.getSoundManager(), this, "ballRebound.wav");
-			this.mCoinSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "coin.mp3");  
-		} catch (final IOException e) {
-			Debug.e(e);
-		}
+		
+		if(this.soundEnabled){
+			SoundFactory.setAssetBasePath("music/");
+			try {
+				this.mHitSound = SoundFactory.createSoundFromAsset(
+						this.mEngine.getSoundManager(), this, "ballRebound.wav");
+				this.mCoinSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "coin.mp3");  
+			} catch (final IOException e) {
+				Debug.e(e);
+			}
 
-		MusicFactory.setAssetBasePath("music/");
-		try {
-			this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
-					this.mEngine.getMusicManager(), this, "quitVillage.mid");
-			this.mBackgroundMusic.setLooping(true);
-		} catch (final IOException e) {
-			Debug.e(e);
+			MusicFactory.setAssetBasePath("music/");
+			try {
+				this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
+						this.mEngine.getMusicManager(), this, "quitVillage.mid");
+				this.mBackgroundMusic.setLooping(true);
+			} catch (final IOException e) {
+				Debug.e(e);
+			}
 		}
 		pProgressListener.onProgressChanged(100);
 
@@ -282,7 +291,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		// 创建一个物理世界，重力与地球重力相等
 		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0,
 				SensorManager.GRAVITY_MARS), false);
-		if (Constants.musicSetting) {
+		if (soundEnabled) {
 			this.mBackgroundMusic.play();
 		}
 		this.initSprites();
@@ -431,7 +440,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					woodBody.setLinearVelocity(-2, 0);
 				}
 
-				if (Constants.musicSetting) {
+				if (soundEnabled) {
 					if ((this.noSoundTime > 0.5)
 							&& (ball.collidesWith(roof)
 									|| ball.collidesWith(left)
@@ -785,7 +794,9 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		@Override
 		public void onUpdate(float pSecondsElapsed) {
 			if (mCoin.collidesWith(ball)){
-				mCoinSound.play();
+				if (soundEnabled) {
+					mCoinSound.play();
+				}
 				mCoin.registerEntityModifier(entityModifier);//这个变换几乎是没效果的
 				mScene.unregisterTouchArea(mCoin);
 				//mScene.getChildByIndex(LAYER_SPRITE).detachChild(coin);
