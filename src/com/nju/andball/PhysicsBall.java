@@ -14,6 +14,7 @@ import org.andengine.engine.camera.hud.controls.AnalogOnScreenControl.IAnalogOnS
 import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
+import org.andengine.engine.options.WakeLockOptions;
 import org.andengine.engine.options.resolutionpolicy.FillResolutionPolicy;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.Entity;
@@ -53,13 +54,16 @@ import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegion
 import org.andengine.opengl.texture.region.ITextureRegion;
 import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
+import org.andengine.ui.activity.SimpleAsyncGameActivity;
 import org.andengine.ui.activity.SimpleBaseGameActivity;
 import org.andengine.util.HorizontalAlign;
 import org.andengine.util.debug.Debug;
 import org.andengine.util.math.MathUtils;
 import org.andengine.util.modifier.IModifier;
 import org.andengine.util.modifier.LoopModifier;
+import org.andengine.util.progress.IProgressListener;
 
+import android.app.ProgressDialog;
 import android.graphics.Color;
 import android.hardware.SensorManager;
 import android.opengl.GLES20;
@@ -71,7 +75,7 @@ import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 
-public class PhysicsBall extends SimpleBaseGameActivity implements
+public class PhysicsBall extends SimpleAsyncGameActivity implements
 		IAccelerationListener {
 	// ===========================================================
 	// Constants
@@ -143,7 +147,6 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 
 	@Override
 	public EngineOptions onCreateEngineOptions() {
-
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 
 		final EngineOptions engineOptions = new EngineOptions(true,
@@ -172,18 +175,20 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		}
 		engineOptions.getAudioOptions().setNeedsSound(true);
 		engineOptions.getAudioOptions().setNeedsMusic(true);
+		engineOptions.setWakeLockOptions(WakeLockOptions.SCREEN_ON);
 		return engineOptions;
 	}
 
 	@Override
-	public void onCreateResources() {
+	public void onCreateResourcesAsync(final IProgressListener pProgressListener) {
 		/* Load the font we are going to use. */
+		pProgressListener.onProgressChanged(0);
 		FontFactory.setAssetBasePath("fonts/");
 		this.mFont = FontFactory.createFromAsset(this.getFontManager(),
 				this.getTextureManager(), 512, 512, TextureOptions.BILINEAR,
 				this.getAssets(), "Plok.ttf", 32, true, Color.WHITE);
 		this.mFont.load();
-
+		pProgressListener.onProgressChanged(10);
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(
@@ -200,7 +205,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mBallTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
 						"DragonBalls.png", 280, 0, 3, 1); // 224 x 32
-		
+		pProgressListener.onProgressChanged(30);
 		//第二行， 680 x 366
 		this.mFireTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
@@ -210,7 +215,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 						"boom.png", 360, 65, 5, 2); // 320x366
 		
 		
-		
+		pProgressListener.onProgressChanged(50);
 		this.mOnScreenControlTexture = new BitmapTextureAtlas(
 				this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
 		this.mOnScreenControlBaseTextureRegion = BitmapTextureAtlasTextureRegionFactory
@@ -220,8 +225,8 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 				.createFromAsset(this.mOnScreenControlTexture, this,
 						"onscreen_control_knob.png", 128, 0);
 		this.mOnScreenControlTexture.load();
-
 		this.mBitmapTextureAtlas.load();
+		pProgressListener.onProgressChanged(70);
 
 		this.mBackgroundTexture = new BitmapTextureAtlas(
 				this.getTextureManager(), 1024, 1024);
@@ -232,7 +237,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 				.createFromAsset(this.mBackgroundTexture, this, "cloud.png", 0,
 						768);		// 999x250
 		this.mBackgroundTexture.load();
-
+		pProgressListener.onProgressChanged(90);
 		SoundFactory.setAssetBasePath("music/");
 		try {
 			this.mHitSound = SoundFactory.createSoundFromAsset(
@@ -250,10 +255,12 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		} catch (final IOException e) {
 			Debug.e(e);
 		}
+		pProgressListener.onProgressChanged(100);
+
 	}
 
 	@Override
-	public Scene onCreateScene() {
+	public Scene onCreateSceneAsync(final IProgressListener pProgressListener) {
 		this.mEngine.registerUpdateHandler(new FPSLogger());
 
 		this.mScene = new Scene();
@@ -282,9 +289,17 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.addBall();
 		this.initOnScreenControls();
 		this.initText();
-
 		return this.mScene;
 	}
+	
+
+	@Override
+	public void onPopulateSceneAsync(Scene pScene,
+			IProgressListener pProgressListener) throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
+	
 	
 
 	@Override
@@ -755,6 +770,7 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 		this.mGameRunning = false;
 	}
 
+	
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================
@@ -839,5 +855,5 @@ public class PhysicsBall extends SimpleBaseGameActivity implements
 			
 		}
 	}
-	
+
 }
