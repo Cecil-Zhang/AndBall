@@ -2,7 +2,6 @@ package com.nju.andball;
 
 import java.io.IOException;
 import java.io.InputStream;
-
 import org.andengine.engine.Engine;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.options.EngineOptions;
@@ -48,7 +47,7 @@ import org.andengine.util.modifier.IModifier;
 import org.andengine.util.modifier.ease.EaseBounceIn;
 import org.andengine.util.modifier.ease.EaseQuadIn;
 import org.andengine.util.modifier.ease.EaseQuadInOut;
-
+import android.annotation.SuppressLint;
 import android.hardware.Camera.Face;
 import android.widget.Toast;
 
@@ -58,6 +57,7 @@ import android.widget.Toast;
  * @author Nicolas Gramlich <ngramlich@zynga.com>
  * @since 16:55:18 - 06.11.2011
  */
+
 public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListener, OnClickListener {
 	// ===========================================================
 	// Constants
@@ -103,17 +103,6 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	private static final int LAYER_BACKGROUND = 1;
 	private static final int LAYER_MONKEY=0;
 
-	// ===========================================================
-	// Constructors
-	// ===========================================================
-
-	// ===========================================================
-	// Getter & Setter
-	// ===========================================================
-
-	// ===========================================================
-	// Methods for/from SuperClass/Interfaces
-	// ===========================================================
 
 	@Override
 	public EngineOptions onCreateEngineOptions() {
@@ -251,9 +240,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		this.mFace2TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "start2-70.png");
 		this.mFace3TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "start-70.png");
 		
-		this.mFace4TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_ok.png");
-		this.mFace5TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_ok.png");
-		this.mFace6TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_ok.png");
+		this.mFace4TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "aboutUs.png");
+		this.mFace5TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "aboutUs2.png");
+		this.mFace6TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "aboutUs.png");
 		
 		this.mFace7TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_quit.png");
 		this.mFace8TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_quit.png");
@@ -377,9 +366,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 																face3.registerEntityModifier(new AlphaModifier(1.7f, 0, 1));
 																scene.getChildByIndex(LAYER_BUTTON).attachChild(face3);
 																
-																face4.registerEntityModifier(new AlphaModifier(2.7f, 0, 1));
-																scene.getChildByIndex(LAYER_BUTTON).attachChild(face4);
-																
+//																face4.registerEntityModifier(new AlphaModifier(2.7f, 0, 1));
+//																scene.getChildByIndex(LAYER_BUTTON).attachChild(face4);
+//																
 																
 															}
 														});
