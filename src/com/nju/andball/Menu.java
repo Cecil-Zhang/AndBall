@@ -2,10 +2,12 @@ package com.nju.andball;
 
 import java.io.IOException;
 import java.io.InputStream;
+
 import org.andengine.engine.Engine;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
+import org.andengine.engine.options.resolutionpolicy.FillResolutionPolicy;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.Entity;
 import org.andengine.entity.IEntity;
@@ -47,6 +49,7 @@ import org.andengine.util.modifier.IModifier;
 import org.andengine.util.modifier.ease.EaseBounceIn;
 import org.andengine.util.modifier.ease.EaseQuadIn;
 import org.andengine.util.modifier.ease.EaseQuadInOut;
+
 import android.annotation.SuppressLint;
 import android.hardware.Camera.Face;
 import android.widget.Toast;
@@ -95,6 +98,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	private Sprite face;
 	private Sprite monkey;
 	private Sprite titleLeft,titleRight;
+	private ButtonSprite face2;
+	private ButtonSprite face3;
+	private ButtonSprite face4;
 	
 	private static final int LAYER_COUNT = 4;
 
@@ -108,7 +114,7 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	public EngineOptions onCreateEngineOptions() {
 		final Camera camera = new Camera(0, 0, Menu.CAMERA_WIDTH, Menu.CAMERA_HEIGHT);
 
-		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(Menu.CAMERA_WIDTH, Menu.CAMERA_HEIGHT), camera);
+		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,  new FillResolutionPolicy(), camera);
 	}
 
 	@Override
@@ -284,15 +290,15 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		final float centerY4 = (CAMERA_HEIGHT - this.mFace7TextureRegion.getHeight()) / 2+this.mFace7TextureRegion.getHeight()*1;
 		
 		
-		final Sprite face2 = new ButtonSprite(centerX2, centerY2, this.mFace1TextureRegion, this.mFace2TextureRegion, this.mFace3TextureRegion, this.getVertexBufferObjectManager(), this);
+		face2 = new ButtonSprite(centerX2, centerY2, this.mFace1TextureRegion, this.mFace2TextureRegion, this.mFace3TextureRegion, this.getVertexBufferObjectManager(), this);
 		scene.registerTouchArea(face2);
 		face2.setAlpha(0);
 		
-		final Sprite face3 = new ButtonSprite(centerX3, centerY3, this.mFace4TextureRegion, this.mFace5TextureRegion, this.mFace6TextureRegion, this.getVertexBufferObjectManager(), this);
+		face3 = new ButtonSprite(centerX3, centerY3, this.mFace4TextureRegion, this.mFace5TextureRegion, this.mFace6TextureRegion, this.getVertexBufferObjectManager(), this);
 		scene.registerTouchArea(face3);
 		face3.setAlpha(0);
 		
-		final Sprite face4 = new ButtonSprite(centerX4, centerY4, this.mFace7TextureRegion, this.mFace8TextureRegion, this.mFace9TextureRegion, this.getVertexBufferObjectManager(), this);
+		face4 = new ButtonSprite(centerX4, centerY4, this.mFace7TextureRegion, this.mFace8TextureRegion, this.mFace9TextureRegion, this.getVertexBufferObjectManager(), this);
 		scene.registerTouchArea(face4);
 		face4.setAlpha(0);
 		
@@ -430,8 +436,13 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 								new DelayModifier(2)
 							)
 						);
-			
-				Toast.makeText(Menu.this, "Clicked", Toast.LENGTH_LONG).show();
+				if(pButtonSprite.equals(face2)){
+					Toast.makeText(Menu.this, "开始游戏", Toast.LENGTH_LONG).show();
+				}else if(pButtonSprite.equals(face3)){
+					Toast.makeText(Menu.this, "关于我们", Toast.LENGTH_LONG).show();
+				}
+				
+				
 			}
 		});
 	}
