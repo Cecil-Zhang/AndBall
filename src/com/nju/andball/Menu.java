@@ -51,6 +51,7 @@ import org.andengine.util.modifier.ease.EaseQuadIn;
 import org.andengine.util.modifier.ease.EaseQuadInOut;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.hardware.Camera.Face;
 import android.widget.Toast;
 
@@ -114,7 +115,8 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	public EngineOptions onCreateEngineOptions() {
 		final Camera camera = new Camera(0, 0, Menu.CAMERA_WIDTH, Menu.CAMERA_HEIGHT);
 
-		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,  new FillResolutionPolicy(), camera);
+		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,  new RatioResolutionPolicy(
+				CAMERA_WIDTH, CAMERA_HEIGHT), camera);
 	}
 
 	@Override
@@ -438,6 +440,8 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 						);
 				if(pButtonSprite.equals(face2)){
 					Toast.makeText(Menu.this, "开始游戏", Toast.LENGTH_LONG).show();
+					Intent intent = new Intent(Menu.this,PhysicsBall.class);
+					startActivity(intent);
 				}else if(pButtonSprite.equals(face3)){
 					Toast.makeText(Menu.this, "关于我们", Toast.LENGTH_LONG).show();
 				}

@@ -21,7 +21,7 @@ public class Constants {
 		mSettings = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 		mEditor = mSettings.edit();
 		highScore = mSettings.getInt(SCORE_KEY, 0);
-		soundEnabled = mSettings.getBoolean(SOUND_KEY, false);
+		soundEnabled = mSettings.getBoolean(SOUND_KEY, true);
 	}
 	
 	public static Constants getInstance(Context context){
