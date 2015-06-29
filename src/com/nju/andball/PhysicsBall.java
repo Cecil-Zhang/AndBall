@@ -22,6 +22,7 @@ import org.andengine.entity.IEntity;
 import org.andengine.entity.modifier.AlphaModifier;
 import org.andengine.entity.modifier.DelayModifier;
 import org.andengine.entity.modifier.LoopEntityModifier;
+import org.andengine.entity.modifier.MoveModifier;
 import org.andengine.entity.modifier.ParallelEntityModifier;
 import org.andengine.entity.modifier.RotationByModifier;
 import org.andengine.entity.modifier.RotationModifier;
@@ -61,6 +62,7 @@ import org.andengine.util.debug.Debug;
 import org.andengine.util.math.MathUtils;
 import org.andengine.util.modifier.IModifier;
 import org.andengine.util.modifier.LoopModifier;
+import org.andengine.util.modifier.ease.EaseBounceOut;
 import org.andengine.util.progress.IProgressListener;
 
 import android.app.ProgressDialog;
@@ -207,7 +209,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0, 0); // 128x18
 		this.mNailTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"dragon.png", 280, 0); // 26x59 
+						"dragon.png", 504, 0); // 53 x 65
 		this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this, 
 						"smallCoin.png", 154, 0, 4, 2);	// 126x65
@@ -295,13 +297,10 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		// 创建一个物理世界，重力与地球重力相等
 		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0,
 				SensorManager.GRAVITY_MARS), false);
-		if (soundEnabled) {
-			this.mBackgroundMusic.play();
-		}
 		this.initSprites();
-		this.addBall();
 		this.initOnScreenControls();
 		this.initText();
+		this.onGameStart();
 		return this.mScene;
 	}
 	
@@ -428,57 +427,60 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 			@Override
 			public void onUpdate(final float pSecondsElapsed) {
-				EndingTimer -= pSecondsElapsed;
-				if (EndingTimer <= 0) {
-					mScene.unregisterUpdateHandler(this);
-					mTimerText.setText("Time: 0s");
-					onGameOver();
-				} else {
-					mTimerText.setText("Time: "
-							+ String.valueOf(Math.round(EndingTimer)) + "s");
-				}
-				
-				for (AnimatedSprite fire:fires){
-					if(fire.collidesWith(ball)){
+				if(mGameRunning){
+					EndingTimer -= pSecondsElapsed;
+					if (soundEnabled) {
+						if ((this.noSoundTime > 0.5)
+								&& (ball.collidesWith(roof)
+										|| ball.collidesWith(left)
+										|| ball.collidesWith(right)
+										|| ball.collidesWith(ground) || ball
+											.collidesWith(wood))) {
+							PhysicsBall.this.mHitSound.play();
+							this.noSoundTime = 0;
+						} else {
+							this.noSoundTime += pSecondsElapsed;
+						}
+					}
+					
+					if (EndingTimer <= 0) {
+						mScene.unregisterUpdateHandler(this);
+						mTimerText.setText("Time: 0s");
 						onGameOver();
-					}
-				}
-				
-				if (ground.collidesWith(ball)){
-					 onGameOver();
-				}
-
-				if (left.collidesWith(wood)) {
-					woodBody.setLinearVelocity(2, 0);
-				}
-
-				if (right.collidesWith(wood)) {
-					woodBody.setLinearVelocity(-2, 0);
-				}
-
-				if (soundEnabled) {
-					if ((this.noSoundTime > 0.5)
-							&& (ball.collidesWith(roof)
-									|| ball.collidesWith(left)
-									|| ball.collidesWith(right)
-									|| ball.collidesWith(ground) || ball
-										.collidesWith(wood))) {
-						PhysicsBall.this.mHitSound.play();
-						this.noSoundTime = 0;
+						return;
 					} else {
-						this.noSoundTime += pSecondsElapsed;
+						mTimerText.setText("Time: "
+								+ String.valueOf(Math.round(EndingTimer)) + "s");
+					}
+					
+					if (ground.collidesWith(ball)){
+						 onGameOver();
+						 return;
+					}
+					
+					for (AnimatedSprite fire:fires){
+						if(fire.collidesWith(ball)){
+							//onGameOver();
+						}
+					}
+					
+
+					if (left.collidesWith(wood)) {
+						woodBody.setLinearVelocity(2, 0);
+					}
+
+					if (right.collidesWith(wood)) {
+						woodBody.setLinearVelocity(-2, 0);
+					}
+
+					if (nail.collidesWith(ball)) {
+						removeBall();
+						mScore = mScore + 50;
+						mScoreText.setText("Score: " + mScore);
+						moveNail();
+						addBall();
 					}
 				}
-
-				if (nail.collidesWith(ball)) {
-					removeBall();
-					mScore = mScore + 50;
-					mScoreText.setText("Score: " + mScore);
-					moveNail();
-					addBall();
-
-				}
-
 			}
 		});
 	}
@@ -701,23 +703,26 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	}
 
 	private void removeBall() {
-		displayBoom(ball.getX(),ball.getY());
-		final PhysicsConnector facePhysicsConnector = mPhysicsWorld
-				.getPhysicsConnectorManager().findPhysicsConnectorByShape(ball);
+		if(ball != null){
+			displayBoom(ball.getX(),ball.getY());
+			final PhysicsConnector facePhysicsConnector = mPhysicsWorld
+					.getPhysicsConnectorManager().findPhysicsConnectorByShape(ball);
 
-		mPhysicsWorld.unregisterPhysicsConnector(facePhysicsConnector);
-		mPhysicsWorld.destroyBody(facePhysicsConnector.getBody());
+			mPhysicsWorld.unregisterPhysicsConnector(facePhysicsConnector);
+			mPhysicsWorld.destroyBody(facePhysicsConnector.getBody());
 
-		mScene.getChildByIndex(LAYER_SPRITE).detachChild(ball);
-		
-		System.gc();
+			mScene.getChildByIndex(LAYER_SPRITE).detachChild(ball);
+			ball = null;
+			
+			System.gc();
+		}
 		
 	}
 
 	private void addBall() {
 		// 创建小球
-		float x = ((float) Math.random()) * CAMERA_WIDTH;
-		float y = ((float) Math.random()) * CAMERA_HEIGHT;
+		float x = ((float) Math.random()) * CAMERA_WIDTH * 4/6 +50;
+		float y = ((float) Math.random()) * 100;
 		ball = new AnimatedSprite(x, y, this.mBallTextureRegion,
 				this.getVertexBufferObjectManager());
 		ballBody = PhysicsFactory.createCircleBody(this.mPhysicsWorld, ball,
@@ -789,14 +794,38 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		return positions;
 	}
 
+	private void onGameStart() {
+		this.mGameRunning = true;
+		if(this.soundEnabled && !this.mBackgroundMusic.isPlaying()){
+			this.mBackgroundMusic.play();
+		}
+		this.addBall();
+	}
+	
 	private void onGameOver() {
 		// this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mGameOverText);
 		this.ballBody.setLinearVelocity(0, 0);
 		this.mGameRunning = false;
 		
-		Intent intent = new Intent(this,Menu.class);
-		startActivity(intent);
+		if(this.soundEnabled && this.mBackgroundMusic.isPlaying()){
+			this.mBackgroundMusic.stop();
+		}
 		
+		if(ball != null){
+			removeBall();
+		}
+		showOptions();
+	}
+	
+	private void showOptions(){
+		float y = CAMERA_HEIGHT * 5 / 10;
+		Text result = new Text(CAMERA_WIDTH * 6 / 10, y, this.mFont,
+				"Score: "+mScore, ("Score: "+mScore).length(),
+				this.getVertexBufferObjectManager());
+		result.setBlendFunction(GLES20.GL_SRC_ALPHA,
+				GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		result.registerEntityModifier(new MoveModifier(5, CAMERA_WIDTH - result.getWidth(), CAMERA_WIDTH - result.getWidth(), 0, y, EaseBounceOut.getInstance()));
+		mScene.getChildByIndex(LAYER_SCORE).attachChild(result);
 	}
 
 	

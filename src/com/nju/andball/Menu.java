@@ -293,13 +293,11 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 				this.getAssets(), "DeadSpaceTitleFont.ttf", 32, true, Color.WHITE);
 		this.mFont.load();
 		if(this.soundEnabled){
-			
-
 			MusicFactory.setAssetBasePath("music/");
 			try {
 				this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
-						this.mEngine.getMusicManager(), this, "quitVillage.mid");
-				this.mBackgroundMusic.setLooping(true);
+						this.mEngine.getMusicManager(), this, "startup.mp3");
+				this.mBackgroundMusic.setLooping(false);
 			} catch (final IOException e) {
 				Debug.e(e);
 			}
@@ -448,6 +446,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 				GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		this.bestScores.registerEntityModifier(new MoveModifier(5, CAMERA_WIDTH - bestScores.getWidth(), CAMERA_WIDTH - bestScores.getWidth(), 0, y, EaseBounceOut.getInstance()));
 		scene.getChildByIndex(LAYER_LOGO).attachChild(bestScores);
+		if(this.soundEnabled){
+			this.mBackgroundMusic.play();
+		}
 		
 		return scene;
 	}
@@ -489,6 +490,11 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 							)
 						);
 				if(pButtonSprite.equals(face2)){
+					if(soundEnabled){
+						if(mBackgroundMusic.isPlaying()){
+							mBackgroundMusic.stop();
+						}
+					}
 					Toast.makeText(Menu.this, "开始游戏", Toast.LENGTH_LONG).show();
 					Intent intent = new Intent(Menu.this,PhysicsBall.class);
 					startActivity(intent);
