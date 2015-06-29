@@ -107,6 +107,8 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	private ITextureRegion mFace7TextureRegion;
 	private ITextureRegion mFace8TextureRegion;
 	private ITextureRegion mFace9TextureRegion;
+	private ITextureRegion mFace10TextureRegion;
+	private ITextureRegion mFace11TextureRegion;
 	
 	private Sprite face;
 	private Sprite monkey;
@@ -114,6 +116,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	private ButtonSprite face2;
 	private ButtonSprite face3;
 	private ButtonSprite face4;
+	private ButtonSprite muteButton;
+	private ButtonSprite unmuteButton;
+	
 	private Text bestScores;
 	private Font mFont;
 	private Music mBackgroundMusic;
@@ -125,6 +130,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	private static final int LAYER_LOGO=2;
 	private static final int LAYER_BACKGROUND = 1;
 	private static final int LAYER_MONKEY=0;
+	
+	private Scene scene;
+	
 
 
 	@Override
@@ -280,6 +288,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		this.mFace8TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_quit.png");
 		this.mFace9TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_quit.png");
 		
+		this.mFace10TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "mute.png");
+		this.mFace11TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "unmute.png");
+		
 		try {
 			this.mBitmapTextureAtlas.build(new BlackPawnTextureAtlasBuilder<IBitmapTextureAtlasSource, BitmapTextureAtlas>(0, 0, 0));
 			this.mBitmapTextureAtlas.load();
@@ -293,11 +304,13 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 				this.getAssets(), "DeadSpaceTitleFont.ttf", 32, true, Color.WHITE);
 		this.mFont.load();
 		if(this.soundEnabled){
+			
+
 			MusicFactory.setAssetBasePath("music/");
 			try {
 				this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
-						this.mEngine.getMusicManager(), this, "startup.mp3");
-				this.mBackgroundMusic.setLooping(false);
+						this.mEngine.getMusicManager(), this, "quitVillage.mid");
+				this.mBackgroundMusic.setLooping(true);
 			} catch (final IOException e) {
 				Debug.e(e);
 			}
@@ -309,7 +322,7 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		this.mEngine.registerUpdateHandler(new FPSLogger());
 
 		/* Create a nice scene with some rectangles. */
-		final Scene scene = new Scene();
+		scene = new Scene();
 		
 		for(int i = 0; i < LAYER_COUNT; i++) {
 			scene.attachChild(new Entity());
@@ -355,11 +368,21 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		final float titleRightX = (CAMERA_WIDTH - this.titleRightTextureRegion.getWidth()) / 2 + titleRightWidth/2;
 		final float titleRightY = (CAMERA_HEIGHT - this.titleRightTextureRegion.getHeight()) / 2;
 		
+		final float muteX = 58;
+		final float muteY = CAMERA_HEIGHT-68;
 		
 		titleLeft=new Sprite(titleLeftX, titleLeftY, titleLeftTextureRegion, this.getVertexBufferObjectManager());
 		titleRight=new Sprite(titleRightX, titleRightY, titleRightTextureRegion, this.getVertexBufferObjectManager());
 		titleLeft.setAlpha(0);
 		titleRight.setAlpha(0);
+		
+		muteButton=new ButtonSprite(muteX, muteY, mFace10TextureRegion, this.getVertexBufferObjectManager(),this);
+		unmuteButton=new ButtonSprite(muteX, muteY, mFace11TextureRegion, this.getVertexBufferObjectManager(),this);
+		muteButton.setAlpha(0);
+		scene.getChildByIndex(LAYER_LOGO).attachChild(unmuteButton);
+		scene.getChildByIndex(LAYER_LOGO).attachChild(muteButton);
+		scene.registerTouchArea(unmuteButton);
+		
 		
 		monkey=new Sprite(monkeyX, monkeyY, mMonkeyTextureRegion, this.getVertexBufferObjectManager());
 		monkey.setScale(0);
@@ -446,9 +469,6 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 				GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		this.bestScores.registerEntityModifier(new MoveModifier(5, CAMERA_WIDTH - bestScores.getWidth(), CAMERA_WIDTH - bestScores.getWidth(), 0, y, EaseBounceOut.getInstance()));
 		scene.getChildByIndex(LAYER_LOGO).attachChild(bestScores);
-		if(this.soundEnabled){
-			this.mBackgroundMusic.play();
-		}
 		
 		return scene;
 	}
@@ -490,16 +510,25 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 							)
 						);
 				if(pButtonSprite.equals(face2)){
-					if(soundEnabled){
-						if(mBackgroundMusic.isPlaying()){
-							mBackgroundMusic.stop();
-						}
-					}
 					Toast.makeText(Menu.this, "开始游戏", Toast.LENGTH_LONG).show();
 					Intent intent = new Intent(Menu.this,PhysicsBall.class);
 					startActivity(intent);
 				}else if(pButtonSprite.equals(face3)){
 					Toast.makeText(Menu.this, "关于我们", Toast.LENGTH_LONG).show();
+				} else if (pButtonSprite.equals(muteButton)){
+					muteButton.setAlpha(0);
+					unmuteButton.setAlpha(1);
+					scene.unregisterTouchArea(muteButton);
+					scene.registerTouchArea(unmuteButton);
+					Constants.getInstance(Menu.this).setSoundEnabled(true);
+					mBackgroundMusic.play();
+				} else if (pButtonSprite.equals(unmuteButton)){
+					unmuteButton.setAlpha(0);
+					muteButton.setAlpha(1);
+					scene.unregisterTouchArea(unmuteButton);
+					scene.registerTouchArea(muteButton);
+					Constants.getInstance(Menu.this).setSoundEnabled(false);
+					mBackgroundMusic.pause();
 				}
 				
 				
