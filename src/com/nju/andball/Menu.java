@@ -104,9 +104,7 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	private ITextureRegion mFace4TextureRegion;
 	private ITextureRegion mFace5TextureRegion;
 	private ITextureRegion mFace6TextureRegion;
-	private ITextureRegion mFace7TextureRegion;
-	private ITextureRegion mFace8TextureRegion;
-	private ITextureRegion mFace9TextureRegion;
+	
 	private ITextureRegion mFace10TextureRegion;
 	private ITextureRegion mFace11TextureRegion;
 	
@@ -141,9 +139,9 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 
 		EngineOptions engineOptions = new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,  new RatioResolutionPolicy(
 				CAMERA_WIDTH, CAMERA_HEIGHT), camera);
+		engineOptions.getAudioOptions().setNeedsSound(true);
+		engineOptions.getAudioOptions().setNeedsMusic(true);
 		if(Constants.getInstance(this).getSoundEnabled()){
-			engineOptions.getAudioOptions().setNeedsSound(true);
-			engineOptions.getAudioOptions().setNeedsMusic(true);
 			this.soundEnabled = true;
 		}else{
 			this.soundEnabled = false;
@@ -272,7 +270,7 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 			Debug.e(e);
 		}
 		
-		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
+		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
 		this.mBitmapTextureAtlas = new BuildableBitmapTextureAtlas(this.getTextureManager(), 512, 512);
 
@@ -284,9 +282,6 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		this.mFace5TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "aboutUs2.png");
 		this.mFace6TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "aboutUs.png");
 		
-		this.mFace7TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_quit.png");
-		this.mFace8TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_quit.png");
-		this.mFace9TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "menu_quit.png");
 		
 		this.mFace10TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "mute.png");
 		this.mFace11TextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "unmute.png");
@@ -303,17 +298,14 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 				this.getTextureManager(), 512, 512, TextureOptions.BILINEAR,
 				this.getAssets(), "DeadSpaceTitleFont.ttf", 32, true, Color.WHITE);
 		this.mFont.load();
-		if(this.soundEnabled){
-			
-
-			MusicFactory.setAssetBasePath("music/");
-			try {
-				this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
-						this.mEngine.getMusicManager(), this, "quitVillage.mid");
-				this.mBackgroundMusic.setLooping(true);
-			} catch (final IOException e) {
-				Debug.e(e);
-			}
+		
+		MusicFactory.setAssetBasePath("music/");
+		try {
+			this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
+					this.mEngine.getMusicManager(), this, "startup.mp3");
+			this.mBackgroundMusic.setLooping(true);
+		} catch (final IOException e) {
+			Debug.e(e);
 		}
 	}
 
@@ -339,11 +331,7 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		final float centerY2 = (CAMERA_HEIGHT - this.mFace1TextureRegion.getHeight()) / 2-this.mFace1TextureRegion.getHeight()*1.5f;
 		
 		final float centerX3 = (CAMERA_WIDTH  - this.mFace4TextureRegion.getWidth()) / 2;
-		final float centerY3 = (CAMERA_HEIGHT - this.mFace4TextureRegion.getHeight()) / 2-this.mFace4TextureRegion.getHeight()*0.5f;
-		
-		final float centerX4 = (CAMERA_WIDTH  - this.mFace7TextureRegion.getWidth()) / 2;
-		final float centerY4 = (CAMERA_HEIGHT - this.mFace7TextureRegion.getHeight()) / 2+this.mFace7TextureRegion.getHeight()*1;
-		
+		final float centerY3 = (CAMERA_HEIGHT - this.mFace4TextureRegion.getHeight()) / 2-this.mFace4TextureRegion.getHeight()*0.5f+170;
 		
 		face2 = new ButtonSprite(centerX2, centerY2, this.mFace1TextureRegion, this.mFace2TextureRegion, this.mFace3TextureRegion, this.getVertexBufferObjectManager(), this);
 		scene.registerTouchArea(face2);
@@ -353,9 +341,6 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		scene.registerTouchArea(face3);
 		face3.setAlpha(0);
 		
-		face4 = new ButtonSprite(centerX4, centerY4, this.mFace7TextureRegion, this.mFace8TextureRegion, this.mFace9TextureRegion, this.getVertexBufferObjectManager(), this);
-		scene.registerTouchArea(face4);
-		face4.setAlpha(0);
 		
 		final float titleLeftWidth=this.titleLeftTextureRegion.getWidth();
 		final float titleLeftHeight=this.titleLeftTextureRegion.getHeight();
@@ -378,10 +363,19 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		
 		muteButton=new ButtonSprite(muteX, muteY, mFace10TextureRegion, this.getVertexBufferObjectManager(),this);
 		unmuteButton=new ButtonSprite(muteX, muteY, mFace11TextureRegion, this.getVertexBufferObjectManager(),this);
-		muteButton.setAlpha(0);
+		if (this.soundEnabled){
+			muteButton.setAlpha(0);
+			scene.registerTouchArea(unmuteButton);
+		}else{
+			unmuteButton.setAlpha(0);
+			scene.registerTouchArea(muteButton);
+		}
+		
+		muteButton.registerEntityModifier(new MoveModifier(5, muteX, muteX, 0, muteY, EaseBounceOut.getInstance()));
+		unmuteButton.registerEntityModifier(new MoveModifier(5, muteX, muteX, 0, muteY, EaseBounceOut.getInstance()));
 		scene.getChildByIndex(LAYER_LOGO).attachChild(unmuteButton);
 		scene.getChildByIndex(LAYER_LOGO).attachChild(muteButton);
-		scene.registerTouchArea(unmuteButton);
+		
 		
 		
 		monkey=new Sprite(monkeyX, monkeyY, mMonkeyTextureRegion, this.getVertexBufferObjectManager());
@@ -454,7 +448,6 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		
 		scene.getChildByIndex(LAYER_BACKGROUND).attachChild(face);
 		
-		
 		scene.setTouchAreaBindingOnActionDownEnabled(true);
 		
 		/* TouchListener */
@@ -462,13 +455,17 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		
 		//初始化文本
 		float y = CAMERA_HEIGHT * 9 / 10;
+		String best = "BestScore: "+Constants.getInstance(this).getHighScore();
 		this.bestScores = new Text(CAMERA_WIDTH * 6 / 10, y, this.mFont,
-				"BestScore: 0", "BestScore: 50000".length(),
+				best, best.length(),
 				this.getVertexBufferObjectManager());
 		this.bestScores.setBlendFunction(GLES20.GL_SRC_ALPHA,
 				GLES20.GL_ONE_MINUS_SRC_ALPHA);
 		this.bestScores.registerEntityModifier(new MoveModifier(5, CAMERA_WIDTH - bestScores.getWidth(), CAMERA_WIDTH - bestScores.getWidth(), 0, y, EaseBounceOut.getInstance()));
 		scene.getChildByIndex(LAYER_LOGO).attachChild(bestScores);
+		if(this.soundEnabled){
+			this.mBackgroundMusic.play();
+		}
 		
 		return scene;
 	}
@@ -492,6 +489,13 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	public void onBackPressed(){
 		//do nothing
 	}
+	
+	@Override
+	public void onPauseGame(){
+		super.onPauseGame();
+		this.finish();
+	}
+	
 
 	// ===========================================================
 	// Methods
@@ -534,7 +538,7 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 					scene.unregisterTouchArea(unmuteButton);
 					scene.registerTouchArea(muteButton);
 					Constants.getInstance(Menu.this).setSoundEnabled(false);
-					mBackgroundMusic.pause();
+					mBackgroundMusic.stop();
 				}
 				
 				

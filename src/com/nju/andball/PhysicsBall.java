@@ -345,12 +345,17 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 	@Override
 	public void onResumeGame() {
 		super.onResumeGame();
-
+		if(this.mBackgroundMusic.isPlaying()){
+			this.mBackgroundMusic.pause();
+		}
 	}
 
 	@Override
 	public void onPauseGame() {
 		super.onPauseGame();
+		if(this.soundEnabled){
+			this.mBackgroundMusic.resume();
+		}
 	}
 
 	@Override

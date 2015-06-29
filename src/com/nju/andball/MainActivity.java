@@ -1,16 +1,25 @@
 package com.nju.andball;
 
-import android.support.v7.app.ActionBarActivity;
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends Activity {
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+		Intent intent;
+		if(Constants.getInstance(this).isFirstEnter()){
+			intent = new Intent(this, ViewPagerActivity.class);
+		}else{
+			intent = new Intent(this, com.nju.andball.Menu.class);
+		}
+		startActivity(intent);
+		this.finish();
 	}
 
 	@Override
