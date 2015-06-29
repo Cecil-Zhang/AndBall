@@ -21,6 +21,7 @@ import org.andengine.entity.Entity;
 import org.andengine.entity.IEntity;
 import org.andengine.entity.modifier.AlphaModifier;
 import org.andengine.entity.modifier.DelayModifier;
+import org.andengine.entity.modifier.FadeOutModifier;
 import org.andengine.entity.modifier.LoopEntityModifier;
 import org.andengine.entity.modifier.MoveModifier;
 import org.andengine.entity.modifier.ParallelEntityModifier;
@@ -114,6 +115,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private ITextureRegion mNailTextureRegion;
 	private ITextureRegion mCloudTextureRegion;
 	private ITextureRegion mReplayTextureRegion;
+	private ITextureRegion mReplayPressedTextureRegion;
 	private BitmapTextureAtlas mBackgroundTexture;
 	private ITextureRegion mBackgroundTextureRegion;
 	private BitmapTextureAtlas mOnScreenControlTexture;
@@ -211,7 +213,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(
 				this.getTextureManager(), 1024, 512, TextureOptions.BILINEAR);
-		// 第一行, 728 x 65
+		// 第一行, 685 x 65
 		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0,
 						0); // 128x18
@@ -226,7 +228,10 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 						"DragonBalls.png", 280, 0, 3, 1); // 224 x 32
 		this.mReplayTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"start2-70.png", 557, 0); // 171x60
+						"retry.png", 557, 0); // 64x64
+		this.mReplayPressedTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mBitmapTextureAtlas, this,
+						"retry1.png", 621, 0); // 64x64
 		pProgressListener.onProgressChanged(30);
 		// 第二行， 680 x 366
 		this.mFireTextureRegion = BitmapTextureAtlasTextureRegionFactory
@@ -859,7 +864,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 	private void showOptions() {
 		float width = 320;
-		float height = 250;
+		float height = 200;
 		final Rectangle rect = new Rectangle(0, 0, width, height,
 				this.getVertexBufferObjectManager());
 		rect.setColor(0.5f, 0.5f, 0.5f);
@@ -871,42 +876,65 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 		// 显示本局分数以及最高分的文本
 		String content = "Score: " + mScore + "\nBest: " + this.bestScore;
-		final Text result = new Text(0, 0, this.mFont, content, content.length(),
+		final Text result = new Text(30, 0, this.mFont, content, content.length(),
 				this.getVertexBufferObjectManager());
 		result.setHorizontalAlign(HorizontalAlign.CENTER);
-		result.setWidth(width);
 		result.setBlendFunction(GLES20.GL_SRC_ALPHA,
 				GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
 		// 选项按钮
-		final ButtonSprite replyButton = new ButtonSprite(70f, height
-				- result.getHeight(), this.mReplayTextureRegion,
+		float secondRow = 100f;
+		final Text retry = new Text(50f, secondRow, this.mFont, "RETRY", 5,
 				this.getVertexBufferObjectManager());
-		replyButton.setOnClickListener(new OnClickListener() {
+		final ButtonSprite retryButton = new ButtonSprite(50f+retry.getWidth()+5f, secondRow+10f, this.mReplayTextureRegion, this.mReplayPressedTextureRegion, 
+				this.mReplayPressedTextureRegion, this.getVertexBufferObjectManager());
+		final IEntityModifierListener listener = new IEntityModifierListener(){
+
+			@Override
+			public void onModifierStarted(IModifier<IEntity> pModifier,
+					IEntity pItem) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void onModifierFinished(IModifier<IEntity> pModifier,
+					IEntity pItem) {
+				// TODO Auto-generated method stub
+				runOnUpdateThread(new Runnable(){
+					
+					@Override
+					public void run() {
+						// TODO Auto-generated method stub
+						rect.detachChild(result);
+						rect.detachChild(retry);
+						rect.detachChild(retryButton);
+						mScene.unregisterTouchArea(retryButton);
+						mScene.getChildByIndex(LAYER_SCORE).detachChild(rect);
+						System.gc();
+						onGameStart();
+					}
+				});
+				
+			}
+			
+		};
+		retryButton.setOnClickListener(new OnClickListener() {
 					@Override
 					public void onClick(ButtonSprite pButtonSprite,
 							float pTouchAreaLocalX, float pTouchAreaLocalY) {
 						// TODO Auto-generated method stub
-						runOnUpdateThread(new Runnable(){
-							
-							@Override
-							public void run() {
-								// TODO Auto-generated method stub
-								rect.detachChild(result);
-								rect.detachChild(replyButton);
-								mScene.unregisterTouchArea(replyButton);
-								mScene.getChildByIndex(LAYER_SCORE).detachChild(rect);
-								Log.i("Click", String.valueOf(rect.detachSelf()));
-							}
-						});
-						System.gc();
-						onGameStart();
+						result.registerEntityModifier(new FadeOutModifier(3f));
+						retry.registerEntityModifier(new FadeOutModifier(3f));
+						retryButton.registerEntityModifier(new FadeOutModifier(3f));
+						rect.registerEntityModifier(new FadeOutModifier(3f, listener));
 					}
 
 				});
 		rect.attachChild(result);
-		rect.attachChild(replyButton);
-		mScene.registerTouchArea(replyButton);
+		rect.attachChild(retry);
+		rect.attachChild(retryButton);
+		mScene.registerTouchArea(retryButton);
 		mScene.getChildByIndex(LAYER_SCORE).attachChild(rect);
 	}
 
