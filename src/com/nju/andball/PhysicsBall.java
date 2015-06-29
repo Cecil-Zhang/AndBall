@@ -15,13 +15,12 @@ import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.WakeLockOptions;
-import org.andengine.engine.options.resolutionpolicy.FillResolutionPolicy;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.Entity;
 import org.andengine.entity.IEntity;
 import org.andengine.entity.modifier.AlphaModifier;
 import org.andengine.entity.modifier.DelayModifier;
-import org.andengine.entity.modifier.FadeOutModifier;
+import org.andengine.entity.modifier.FadeInModifier;
 import org.andengine.entity.modifier.LoopEntityModifier;
 import org.andengine.entity.modifier.MoveModifier;
 import org.andengine.entity.modifier.ParallelEntityModifier;
@@ -59,16 +58,14 @@ import org.andengine.opengl.texture.region.ITextureRegion;
 import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
 import org.andengine.ui.activity.SimpleAsyncGameActivity;
-import org.andengine.ui.activity.SimpleBaseGameActivity;
 import org.andengine.util.HorizontalAlign;
 import org.andengine.util.debug.Debug;
 import org.andengine.util.math.MathUtils;
 import org.andengine.util.modifier.IModifier;
 import org.andengine.util.modifier.LoopModifier;
-import org.andengine.util.modifier.ease.EaseBounceOut;
+import org.andengine.util.modifier.ease.EaseBounceIn;
 import org.andengine.util.progress.IProgressListener;
 
-import android.app.ProgressDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.hardware.SensorManager;
@@ -81,8 +78,7 @@ import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 
-public class PhysicsBall extends SimpleAsyncGameActivity implements
-		IAccelerationListener {
+public class PhysicsBall extends SimpleAsyncGameActivity {
 	// ===========================================================
 	// Constants
 	// ===========================================================
@@ -90,15 +86,15 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private static final int CAMERA_HEIGHT = 480;
 
 	private static final FixtureDef BALL_FIXTURE_DEF = PhysicsFactory
-			.createFixtureDef(0.1f, 0.8f, 0.6f); // 密度，弹性系数，摩擦系数
+			.createFixtureDef(0.1f, 0.7f, 0.6f); // 密度，弹性系数，摩擦系数
 	private static final FixtureDef WOOD_FIXTURE_DEF = PhysicsFactory
-			.createFixtureDef(1, 2.0f, 0.6f);
+			.createFixtureDef(1, 1.8f, 0.6f);
 	private static final int LAYER_COUNT = 3;
 
 	private static final int LAYER_BACKGROUND = 0;
 	private static final int LAYER_SPRITE = LAYER_BACKGROUND + 1;
 	private static final int LAYER_SCORE = LAYER_SPRITE + 1;
-	private float EndingTimer = 2f;
+	private float EndingTimer = 60f;
 
 	// ===========================================================
 	// Fields
@@ -135,6 +131,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private Sprite nail;
 	private AnimatedSprite ball;
 	private ArrayList<AnimatedSprite> fires;
+	private ArrayList<AnimatedSprite> coins;
 	private Body woodBody;
 	private Body ballBody;
 	private int mScore = 0;
@@ -227,11 +224,11 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
 						"DragonBalls.png", 280, 0, 3, 1); // 224 x 32
 		this.mReplayTextureRegion = BitmapTextureAtlasTextureRegionFactory
-				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"retry.png", 557, 0); // 64x64
+				.createFromAsset(this.mBitmapTextureAtlas, this, "retry.png",
+						557, 0); // 64x64
 		this.mReplayPressedTextureRegion = BitmapTextureAtlasTextureRegionFactory
-				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"retry1.png", 621, 0); // 64x64
+				.createFromAsset(this.mBitmapTextureAtlas, this, "retry1.png",
+						621, 0); // 64x64
 		pProgressListener.onProgressChanged(30);
 		// 第二行， 680 x 366
 		this.mFireTextureRegion = BitmapTextureAtlasTextureRegionFactory
@@ -332,32 +329,37 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 	}
 
-	@Override
-	public void onAccelerationAccuracyChanged(
-			final AccelerationData pAccelerationData) {
-
-	}
-
-	@Override
-	public void onAccelerationChanged(final AccelerationData pAccelerationData) {
-		// 根据手机重力感应器的状态改变物理世界的重力
-		final Vector2 gravity = Vector2Pool.obtain(pAccelerationData.getX(),
-				pAccelerationData.getY());
-		this.mPhysicsWorld.setGravity(gravity);
-		Vector2Pool.recycle(gravity);
-	}
+//	@Override
+//	public void onAccelerationAccuracyChanged(
+//			final AccelerationData pAccelerationData) {
+//
+//	}
+//
+//	@Override
+//	public void onAccelerationChanged(final AccelerationData pAccelerationData) {
+//		// 根据手机重力感应器的状态改变物理世界的重力
+//		final Vector2 gravity = Vector2Pool.obtain(pAccelerationData.getX(),
+//				pAccelerationData.getY());
+//		this.mPhysicsWorld.setGravity(gravity);
+//		Vector2Pool.recycle(gravity);
+//	}
 
 	@Override
 	public void onResumeGame() {
 		super.onResumeGame();
 
-		this.enableAccelerationSensor(this);
 	}
 
 	@Override
 	public void onPauseGame() {
 		super.onPauseGame();
-		this.disableAccelerationSensor();
+	}
+
+	@Override
+	public void onBackPressed() {
+		Intent intent = new Intent(this, Menu.class);
+		startActivity(intent);
+		this.finish();
 	}
 
 	// ===========================================================
@@ -390,7 +392,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				BodyType.StaticBody, wallFixtureDef);
 
 		// 创建木板
-		wood = new Sprite(CAMERA_WIDTH / 2, CAMERA_HEIGHT - 64,
+		wood = new Sprite(CAMERA_WIDTH / 2, CAMERA_HEIGHT - 80,
 				this.mWoodTextureRegion, this.getVertexBufferObjectManager());
 		woodBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, wood,
 				BodyType.KinematicBody, WOOD_FIXTURE_DEF); // KinematicBody根据速度进行移动，但不受重力影响
@@ -410,20 +412,6 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 			fires.add(fire);
 			this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(fire);
 		}
-
-		// 创建金币
-		ArrayList<Position> coinsPositions = generateCoinPos();
-		for (Position p : coinsPositions) {
-			AnimatedSprite coin = new AnimatedSprite(p.getX(), p.getY(),
-					this.mCoinTextureRegion,
-					this.getVertexBufferObjectManager());
-			coin.animate(100);
-			coin.setBlendFunction(GLES20.GL_SRC_ALPHA,
-					GLES20.GL_ONE_MINUS_SRC_ALPHA);
-			coin.registerUpdateHandler(new GainCoinHandler(coin));
-			this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(coin);
-		}
-		this.createModifier();
 
 		// 将精灵加入到场景中
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ground);
@@ -448,6 +436,14 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 			@Override
 			public void onUpdate(final float pSecondsElapsed) {
+				if (left.collidesWith(wood)) {
+					woodBody.setLinearVelocity(2, 0);
+				}
+
+				if (right.collidesWith(wood)) {
+					woodBody.setLinearVelocity(-2, 0);
+				}
+
 				if (mGameRunning) {
 					EndingTimer -= pSecondsElapsed;
 					if (soundEnabled) {
@@ -470,27 +466,17 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 						onGameOver();
 						return;
 					} else {
-						mTimerText.setText("Time: "
-								+ String.valueOf(Math.round(EndingTimer)) + "s");
-					}
-
-					if (ground.collidesWith(ball)) {
-						onGameOver();
-						return;
+						mTimerText
+								.setText("Time: "
+										+ String.valueOf(Math
+												.round(EndingTimer)) + "s");
 					}
 
 					for (AnimatedSprite fire : fires) {
 						if (fire.collidesWith(ball)) {
-							// onGameOver();
+							onGameOver();
+							return;
 						}
-					}
-
-					if (left.collidesWith(wood)) {
-						woodBody.setLinearVelocity(2, 0);
-					}
-
-					if (right.collidesWith(wood)) {
-						woodBody.setLinearVelocity(-2, 0);
 					}
 
 					if (nail.collidesWith(ball)) {
@@ -520,10 +506,12 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					public void onControlChange(
 							final BaseOnScreenControl pBaseOnScreenControl,
 							final float pValueX, final float pValueY) {
-						final Vector2 velocity = Vector2Pool.obtain(
-								pValueX * 50, 0);
-						woodBody.setLinearVelocity(velocity);
-						Vector2Pool.recycle(velocity);
+						if (mGameRunning) {
+							final Vector2 velocity = Vector2Pool.obtain(
+									pValueX * 50, 0);
+							woodBody.setLinearVelocity(velocity);
+							Vector2Pool.recycle(velocity);
+						}
 					}
 
 					@Override
@@ -552,27 +540,30 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					public void onControlChange(
 							final BaseOnScreenControl pBaseOnScreenControl,
 							final float pValueX, final float pValueY) {
-						if (pValueX == x1 && pValueY == x1) {
-							// woodBody.setAngularVelocity(x1/50);
-							final float rotationInRad = (float) Math.atan2(x1,
-									0);
-							woodBody.setTransform(woodBody.getWorldCenter(),
-									rotationInRad);
+						if (mGameRunning) {
+							if (pValueX == x1 && pValueY == x1) {
+								// woodBody.setAngularVelocity(x1/50);
+								final float rotationInRad = (float) Math.atan2(
+										x1, 0);
+								woodBody.setTransform(
+										woodBody.getWorldCenter(),
+										rotationInRad);
 
-							PhysicsBall.this.wood.setRotation(MathUtils
-									.radToDeg(rotationInRad));
-						} else {
-							// woodBody.setAngularVelocity(MathUtils.radToDeg((float)
-							// Math.atan2(pValueX/50, -pValueY/50)));
-							final float rotationInRad = (float) Math.atan2(
-									pValueX / 50, -pValueY / 50);
-							woodBody.setTransform(woodBody.getWorldCenter(),
-									rotationInRad);
+								PhysicsBall.this.wood.setRotation(MathUtils
+										.radToDeg(rotationInRad));
+							} else {
+								// woodBody.setAngularVelocity(MathUtils.radToDeg((float)
+								// Math.atan2(pValueX/50, -pValueY/50)));
+								final float rotationInRad = (float) Math.atan2(
+										pValueX / 50, -pValueY / 50);
+								woodBody.setTransform(
+										woodBody.getWorldCenter(),
+										rotationInRad);
 
-							PhysicsBall.this.wood.setRotation(MathUtils
-									.radToDeg(rotationInRad));
+								PhysicsBall.this.wood.setRotation(MathUtils
+										.radToDeg(rotationInRad));
+							}
 						}
-						;
 					}
 
 					@Override
@@ -698,39 +689,29 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	}
 
 	private void moveNail() {
-		int seed = (int) Math.round(Math.random() * 4);
+		int seed = (int) Math.round(Math.random() * 3);
 		float x, y;
-		switch (seed % 4) {
+		switch (seed % 3) {
 		case 0:
 			// move nail to roof
 			x = ((float) Math.random()) * CAMERA_WIDTH;
 			nail.setPosition(x, 0);
-			nail.setRotation(0);
 			Log.i("nail", String.valueOf(x) + ", 0");
 			break;
 		case 1:
 			// move nail to left
-			y = ((float) Math.random() * CAMERA_HEIGHT);
-			nail.setPosition(10, y);
-			nail.setRotation(270f);
+			y = ((float) Math.random() * CAMERA_HEIGHT * 2 / 3);
+			nail.setPosition(0, y);
 			Log.i("nail", "10, " + String.valueOf(y));
 			break;
 		case 2:
 			// move nail to right
-			y = ((float) Math.random() * CAMERA_HEIGHT);
-			nail.setPosition(CAMERA_WIDTH - 30, y);
-			nail.setRotation(90f);
+			y = ((float) Math.random() * CAMERA_HEIGHT * 2 / 3);
+			nail.setPosition(CAMERA_WIDTH - nail.getWidth(), y);
 			Log.i("nail",
 					String.valueOf(CAMERA_WIDTH - 30) + ", "
 							+ String.valueOf(y));
 			break;
-		case 3:
-			x = ((float) Math.random()) * CAMERA_WIDTH;
-			nail.setPosition(x, CAMERA_HEIGHT - 64);
-			nail.setRotation(180f);
-			Log.i("nail",
-					String.valueOf(x) + ", "
-							+ String.valueOf(CAMERA_HEIGHT - 64));
 		}
 	}
 
@@ -832,13 +813,29 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 	private void onGameStart() {
 		this.mScore = 0;
-		this.EndingTimer = 2f;
+		this.EndingTimer = 60f;
 		this.mScoreText.setText("Score: 0");
 		this.mTimerText.setText("Time: 0s");
 		this.mScene.registerUpdateHandler(collideHandler);
+		// 创建金币
+		ArrayList<Position> coinsPositions = generateCoinPos();
+		coins = new ArrayList<AnimatedSprite>();
+		for (Position p : coinsPositions) {
+			AnimatedSprite coin = new AnimatedSprite(p.getX(), p.getY(),
+					this.mCoinTextureRegion,
+					this.getVertexBufferObjectManager());
+			coin.animate(100);
+			coin.setBlendFunction(GLES20.GL_SRC_ALPHA,
+					GLES20.GL_ONE_MINUS_SRC_ALPHA);
+			coin.registerUpdateHandler(new GainCoinHandler(coin));
+			this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(coin);
+			coins.add(coin);
+		}
+		this.createModifier();
+
 		this.mGameRunning = true;
 		if (this.soundEnabled && !this.mBackgroundMusic.isPlaying()) {
-			this.mBackgroundMusic.play();
+			this.mBackgroundMusic.resume();
 		}
 		this.addBall();
 	}
@@ -846,9 +843,9 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private void onGameOver() {
 		this.ballBody.setLinearVelocity(0, 0);
 		this.mGameRunning = false;
-
+		this.mScene.unregisterUpdateHandler(collideHandler);
 		if (this.soundEnabled && this.mBackgroundMusic.isPlaying()) {
-			this.mBackgroundMusic.stop();
+			this.mBackgroundMusic.pause();
 			this.gameOverSound.play();
 		}
 
@@ -858,26 +855,25 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 		if (this.mScore > this.bestScore) {
 			Constants.getInstance(this).setHighScore(mScore);
+			this.bestScore = this.mScore;
 		}
 		showOptions();
 	}
 
 	private void showOptions() {
 		float width = 320;
-		float height = 200;
-		final Rectangle rect = new Rectangle(0, 0, width, height,
+		final float height = 200;
+		final float y = CAMERA_HEIGHT * 3 / 10;
+		final float x = (CAMERA_WIDTH - width) / 2;
+		final Rectangle rect = new Rectangle(x, y, width, height,
 				this.getVertexBufferObjectManager());
 		rect.setColor(0.5f, 0.5f, 0.5f);
 		rect.setAlpha(0.8f);
-		float y = CAMERA_HEIGHT * 3 / 10;
-		float x = (CAMERA_WIDTH - rect.getWidth()) / 2;
-		rect.registerEntityModifier(new MoveModifier(3, x, x, 0, y,
-				EaseBounceOut.getInstance()));
 
 		// 显示本局分数以及最高分的文本
 		String content = "Score: " + mScore + "\nBest: " + this.bestScore;
-		final Text result = new Text(30, 0, this.mFont, content, content.length(),
-				this.getVertexBufferObjectManager());
+		final Text result = new Text(30, 0, this.mFont, content,
+				content.length(), this.getVertexBufferObjectManager());
 		result.setHorizontalAlign(HorizontalAlign.CENTER);
 		result.setBlendFunction(GLES20.GL_SRC_ALPHA,
 				GLES20.GL_ONE_MINUS_SRC_ALPHA);
@@ -886,51 +882,60 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		float secondRow = 100f;
 		final Text retry = new Text(50f, secondRow, this.mFont, "RETRY", 5,
 				this.getVertexBufferObjectManager());
-		final ButtonSprite retryButton = new ButtonSprite(50f+retry.getWidth()+5f, secondRow+10f, this.mReplayTextureRegion, this.mReplayPressedTextureRegion, 
-				this.mReplayPressedTextureRegion, this.getVertexBufferObjectManager());
-		final IEntityModifierListener listener = new IEntityModifierListener(){
+		final ButtonSprite retryButton = new ButtonSprite(
+				50f + retry.getWidth() + 5f, secondRow + 10f,
+				this.mReplayTextureRegion, this.mReplayPressedTextureRegion,
+				this.mReplayPressedTextureRegion,
+				this.getVertexBufferObjectManager());
+		final IEntityModifierListener listener = new IEntityModifierListener() {
 
 			@Override
 			public void onModifierStarted(IModifier<IEntity> pModifier,
 					IEntity pItem) {
 				// TODO Auto-generated method stub
-				
+
 			}
 
 			@Override
 			public void onModifierFinished(IModifier<IEntity> pModifier,
 					IEntity pItem) {
 				// TODO Auto-generated method stub
-				runOnUpdateThread(new Runnable(){
-					
+				runOnUpdateThread(new Runnable() {
+
 					@Override
 					public void run() {
 						// TODO Auto-generated method stub
 						rect.detachChild(result);
 						rect.detachChild(retry);
 						rect.detachChild(retryButton);
+						for(AnimatedSprite coin:coins){
+							mScene.getChildByIndex(LAYER_SPRITE).detachChild(coin);
+						}
+						coins = null;
 						mScene.unregisterTouchArea(retryButton);
 						mScene.getChildByIndex(LAYER_SCORE).detachChild(rect);
 						System.gc();
 						onGameStart();
 					}
 				});
-				
+
 			}
-			
+
 		};
 		retryButton.setOnClickListener(new OnClickListener() {
-					@Override
-					public void onClick(ButtonSprite pButtonSprite,
-							float pTouchAreaLocalX, float pTouchAreaLocalY) {
-						// TODO Auto-generated method stub
-						result.registerEntityModifier(new FadeOutModifier(3f));
-						retry.registerEntityModifier(new FadeOutModifier(3f));
-						retryButton.registerEntityModifier(new FadeOutModifier(3f));
-						rect.registerEntityModifier(new FadeOutModifier(3f, listener));
-					}
+			@Override
+			public void onClick(ButtonSprite pButtonSprite,
+					float pTouchAreaLocalX, float pTouchAreaLocalY) {
+				// TODO Auto-generated method stub
+				rect.registerEntityModifier(new MoveModifier(3f, x, x, y,
+						-height, listener, EaseBounceIn.getInstance()));
+			}
 
-				});
+		});
+		result.registerEntityModifier(new FadeInModifier(3f));
+		retry.registerEntityModifier(new FadeInModifier(3f));
+		retryButton.registerEntityModifier(new FadeInModifier(3f));
+		rect.registerEntityModifier(new AlphaModifier(3f, 0f, 0.8f));
 		rect.attachChild(result);
 		rect.attachChild(retry);
 		rect.attachChild(retryButton);

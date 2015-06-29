@@ -487,6 +487,11 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		}
 		return true;
 	}
+	
+	@Override
+	public void onBackPressed(){
+		//do nothing
+	}
 
 	// ===========================================================
 	// Methods
@@ -513,6 +518,7 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 					Toast.makeText(Menu.this, "开始游戏", Toast.LENGTH_LONG).show();
 					Intent intent = new Intent(Menu.this,PhysicsBall.class);
 					startActivity(intent);
+					Menu.this.finish();
 				}else if(pButtonSprite.equals(face3)){
 					Toast.makeText(Menu.this, "关于我们", Toast.LENGTH_LONG).show();
 				} else if (pButtonSprite.equals(muteButton)){
