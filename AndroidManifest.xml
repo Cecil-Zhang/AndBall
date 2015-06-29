@@ -23,14 +23,15 @@
             android:name=".Menu"
             android:label="@string/app_name"
             android:configChanges="orientation|screenSize">
-           	<intent-filter>
+           	
+        </activity>
+        <activity android:name="PhysicsBall"
+            android:configChanges="orientation|screenSize">
+            <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-        <activity android:name="PhysicsBall"
-            android:configChanges="orientation|screenSize">
         </activity>
     </application>
 

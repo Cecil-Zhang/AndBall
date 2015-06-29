@@ -35,7 +35,9 @@ import org.andengine.entity.scene.Scene;
 import org.andengine.entity.scene.background.AutoParallaxBackground;
 import org.andengine.entity.scene.background.ParallaxBackground.ParallaxEntity;
 import org.andengine.entity.sprite.AnimatedSprite;
+import org.andengine.entity.sprite.ButtonSprite;
 import org.andengine.entity.sprite.AnimatedSprite.IAnimationListener;
+import org.andengine.entity.sprite.ButtonSprite.OnClickListener;
 import org.andengine.entity.sprite.Sprite;
 import org.andengine.entity.text.Text;
 import org.andengine.entity.text.TextOptions;
@@ -95,7 +97,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private static final int LAYER_BACKGROUND = 0;
 	private static final int LAYER_SPRITE = LAYER_BACKGROUND + 1;
 	private static final int LAYER_SCORE = LAYER_SPRITE + 1;
-	private float EndingTimer = 60f;
+	private float EndingTimer = 2f;
 
 	// ===========================================================
 	// Fields
@@ -111,6 +113,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private ITextureRegion mWoodTextureRegion;
 	private ITextureRegion mNailTextureRegion;
 	private ITextureRegion mCloudTextureRegion;
+	private ITextureRegion mReplayTextureRegion;
 	private BitmapTextureAtlas mBackgroundTexture;
 	private ITextureRegion mBackgroundTextureRegion;
 	private BitmapTextureAtlas mOnScreenControlTexture;
@@ -122,6 +125,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private Sound mHitSound;
 	private Sound mCoinSound;
 	private Sound boomSound;
+	private Sound gameOverSound;
 	private Music mBackgroundMusic;
 
 	private PhysicsWorld mPhysicsWorld;
@@ -132,12 +136,14 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private Body woodBody;
 	private Body ballBody;
 	private int mScore = 0;
+	private int bestScore = 0;
 	private Text mScoreText;
 	private Text mTimerText;
 	private Text mGameOverText;
 	private Font mFont;
 	private LoopEntityModifier entityModifier;
-	private final int COIN_NUMBER=20;
+	private IUpdateHandler collideHandler;
+	private final int COIN_NUMBER = 20;
 
 	// ===========================================================
 	// Constructors
@@ -157,8 +163,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 		final EngineOptions engineOptions = new EngineOptions(true,
 				ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(
-						CAMERA_WIDTH, CAMERA_HEIGHT),
-				this.mCamera);
+						CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
 		engineOptions.getTouchOptions().setNeedsMultiTouch(true);
 		if (MultiTouch.isSupported(this)) {
 			if (MultiTouch.isSupportedDistinct(this)) {
@@ -179,13 +184,14 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					"Sorry your device does NOT support MultiTouch!\n\n(Falling back to SingleTouch.)\n\nControls are placed at different vertical locations.",
 					Toast.LENGTH_LONG).show();
 		}
-		if(Constants.getInstance(this).getSoundEnabled()){
+		if (Constants.getInstance(this).getSoundEnabled()) {
 			engineOptions.getAudioOptions().setNeedsSound(true);
 			engineOptions.getAudioOptions().setNeedsMusic(true);
 			this.soundEnabled = true;
-		}else{
+		} else {
 			this.soundEnabled = false;
 		}
+		this.bestScore = Constants.getInstance(this).getHighScore();
 		engineOptions.setWakeLockOptions(WakeLockOptions.SCREEN_ON);
 		return engineOptions;
 	}
@@ -197,35 +203,39 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		FontFactory.setAssetBasePath("fonts/");
 		this.mFont = FontFactory.createFromAsset(this.getFontManager(),
 				this.getTextureManager(), 512, 512, TextureOptions.BILINEAR,
-				this.getAssets(), "DeadSpaceTitleFont.ttf", 32, true, Color.WHITE);
+				this.getAssets(), "DeadSpaceTitleFont.ttf", 45, true,
+				Color.WHITE);
 		this.mFont.load();
 		pProgressListener.onProgressChanged(10);
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
 
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(
 				this.getTextureManager(), 1024, 512, TextureOptions.BILINEAR);
-		//第一行, 504 x 65
+		// 第一行, 728 x 65
 		this.mWoodTextureRegion = BitmapTextureAtlasTextureRegionFactory
-				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0, 0); // 128x18
+				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0,
+						0); // 128x18
 		this.mNailTextureRegion = BitmapTextureAtlasTextureRegionFactory
-				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"dragon.png", 504, 0); // 53 x 65
-		this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory
-				.createTiledFromAsset(this.mBitmapTextureAtlas, this, 
-						"smallCoin.png", 154, 0, 4, 2);	// 126x65
+				.createFromAsset(this.mBitmapTextureAtlas, this, "dragon.png",
+						504, 0); // 53 x 65
+		this.mCoinTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
+						"smallCoin.png", 154, 0, 4, 2); // 126x65
 		this.mBallTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
 						"DragonBalls.png", 280, 0, 3, 1); // 224 x 32
+		this.mReplayTextureRegion = BitmapTextureAtlasTextureRegionFactory
+				.createFromAsset(this.mBitmapTextureAtlas, this,
+						"start2-70.png", 557, 0); // 171x60
 		pProgressListener.onProgressChanged(30);
-		//第二行， 680 x 366
+		// 第二行， 680 x 366
 		this.mFireTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
 						"fire.png", 0, 65, 6, 2); // 360x356
 		this.mBoomTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this,
 						"boom.png", 360, 65, 5, 2); // 320x366
-		
-		
+
 		pProgressListener.onProgressChanged(50);
 		this.mOnScreenControlTexture = new BitmapTextureAtlas(
 				this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
@@ -243,28 +253,34 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				this.getTextureManager(), 1024, 1024);
 		this.mBackgroundTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBackgroundTexture, this,
-						"background.jpg", 0, 0);	// 1024x768
+						"background.jpg", 0, 0); // 1024x768
 		this.mCloudTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBackgroundTexture, this, "cloud.png", 0,
-						768);		// 999x250
+						768); // 999x250
 		this.mBackgroundTexture.load();
 		pProgressListener.onProgressChanged(90);
-		
-		if(this.soundEnabled){
+
+		if (this.soundEnabled) {
 			SoundFactory.setAssetBasePath("music/");
 			try {
-				this.mHitSound = SoundFactory.createSoundFromAsset(
-						this.mEngine.getSoundManager(), this, "ballRebound.wav");
-				this.mCoinSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "coin.mp3");  
-				this.boomSound = SoundFactory.createSoundFromAsset(this.mEngine.getSoundManager(), this, "dragonball.wav");
+				this.mHitSound = SoundFactory
+						.createSoundFromAsset(this.mEngine.getSoundManager(),
+								this, "ballRebound.wav");
+				this.mCoinSound = SoundFactory.createSoundFromAsset(
+						this.mEngine.getSoundManager(), this, "coin.mp3");
+				this.boomSound = SoundFactory.createSoundFromAsset(
+						this.mEngine.getSoundManager(), this, "dragonball.wav");
+				this.gameOverSound = SoundFactory.createSoundFromAsset(
+						this.mEngine.getSoundManager(), this, "game_over.ogg");
 			} catch (final IOException e) {
 				Debug.e(e);
 			}
 
 			MusicFactory.setAssetBasePath("music/");
 			try {
-				this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
-						this.mEngine.getMusicManager(), this, "quitVillage.mid");
+				this.mBackgroundMusic = MusicFactory
+						.createMusicFromAsset(this.mEngine.getMusicManager(),
+								this, "quitVillage.mid");
 				this.mBackgroundMusic.setLooping(true);
 			} catch (final IOException e) {
 				Debug.e(e);
@@ -303,16 +319,13 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		this.onGameStart();
 		return this.mScene;
 	}
-	
 
 	@Override
 	public void onPopulateSceneAsync(Scene pScene,
 			IProgressListener pProgressListener) throws Exception {
 		// TODO Auto-generated method stub
-		
+
 	}
-	
-	
 
 	@Override
 	public void onAccelerationAccuracyChanged(
@@ -341,7 +354,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		super.onPauseGame();
 		this.disableAccelerationSensor();
 	}
-	
+
 	// ===========================================================
 	// Methods
 	// ===========================================================
@@ -384,23 +397,26 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 		// 创建火焰
 		fires = new ArrayList<AnimatedSprite>();
-		for(int i=0;i<800;i+=100){
-			final AnimatedSprite fire = new AnimatedSprite(20+i, CAMERA_HEIGHT - 64,
-					this.mFireTextureRegion, this.getVertexBufferObjectManager());
+		for (int i = 0; i < 800; i += 100) {
+			final AnimatedSprite fire = new AnimatedSprite(20 + i,
+					CAMERA_HEIGHT - 64, this.mFireTextureRegion,
+					this.getVertexBufferObjectManager());
 			fire.animate(100);
 			fires.add(fire);
 			this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(fire);
 		}
-		
-		
+
 		// 创建金币
-		ArrayList<Position> coinsPositions=generateCoinPos();
-		for (Position p:coinsPositions){
-			AnimatedSprite coin = new AnimatedSprite(p.getX(), p.getY(), this.mCoinTextureRegion, this.getVertexBufferObjectManager());  
-		     coin.animate(100);  
-		    coin.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-		    coin.registerUpdateHandler(new GainCoinHandler(coin));
-		    this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(coin); 
+		ArrayList<Position> coinsPositions = generateCoinPos();
+		for (Position p : coinsPositions) {
+			AnimatedSprite coin = new AnimatedSprite(p.getX(), p.getY(),
+					this.mCoinTextureRegion,
+					this.getVertexBufferObjectManager());
+			coin.animate(100);
+			coin.setBlendFunction(GLES20.GL_SRC_ALPHA,
+					GLES20.GL_ONE_MINUS_SRC_ALPHA);
+			coin.registerUpdateHandler(new GainCoinHandler(coin));
+			this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(coin);
 		}
 		this.createModifier();
 
@@ -418,7 +434,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				woodBody, true, true));
 
 		// 注册木板与左右边界的碰撞检测，检测到碰撞时反弹木板（KinematicBody与StaticBody不会发生碰撞）
-		mScene.registerUpdateHandler(new IUpdateHandler() {
+		this.collideHandler = new IUpdateHandler() {
 			private float noSoundTime = 0;
 
 			@Override
@@ -427,7 +443,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 			@Override
 			public void onUpdate(final float pSecondsElapsed) {
-				if(mGameRunning){
+				if (mGameRunning) {
 					EndingTimer -= pSecondsElapsed;
 					if (soundEnabled) {
 						if ((this.noSoundTime > 0.5)
@@ -442,7 +458,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 							this.noSoundTime += pSecondsElapsed;
 						}
 					}
-					
+
 					if (EndingTimer <= 0) {
 						mScene.unregisterUpdateHandler(this);
 						mTimerText.setText("Time: 0s");
@@ -452,18 +468,17 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 						mTimerText.setText("Time: "
 								+ String.valueOf(Math.round(EndingTimer)) + "s");
 					}
-					
-					if (ground.collidesWith(ball)){
-						 onGameOver();
-						 return;
+
+					if (ground.collidesWith(ball)) {
+						onGameOver();
+						return;
 					}
-					
-					for (AnimatedSprite fire:fires){
-						if(fire.collidesWith(ball)){
-							//onGameOver();
+
+					for (AnimatedSprite fire : fires) {
+						if (fire.collidesWith(ball)) {
+							// onGameOver();
 						}
 					}
-					
 
 					if (left.collidesWith(wood)) {
 						woodBody.setLinearVelocity(2, 0);
@@ -474,7 +489,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					}
 
 					if (nail.collidesWith(ball)) {
-						removeBall();
+						removeBall(true);
 						mScore = mScore + 50;
 						mScoreText.setText("Score: " + mScore);
 						moveNail();
@@ -482,9 +497,8 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					}
 				}
 			}
-		});
+		};
 	}
-	
 
 	private void initOnScreenControls() {
 		// 创建操控版，左操控版控制木板x轴速度，右操控版控制木板旋转的角速度
@@ -599,129 +613,145 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				720));
 	}
 
+	private void createModifier() {
+		// 创建实体修改器，在业务线程中更新实体状态
+		entityModifier = new LoopEntityModifier(
+		// EntityModifier的监听，通知LoopEntityModifier的开始和结束
+				new IEntityModifierListener() {
+					@Override
+					public void onModifierStarted(
+							final IModifier<IEntity> pModifier,
+							final IEntity pItem) {
+						PhysicsBall.this.runOnUiThread(new Runnable() {
+							@Override
+							public void run() {
+								Toast.makeText(PhysicsBall.this,
+										"Sequence started.", Toast.LENGTH_SHORT)
+										.show();
+							}
+						});
+					}
 
-	
-	private void createModifier(){
-		//创建实体修改器，在业务线程中更新实体状态  
-	       entityModifier =  
-	            new LoopEntityModifier(  
-	                    //EntityModifier的监听，通知LoopEntityModifier的开始和结束  
-	                    new IEntityModifierListener() {  
-	                        @Override  
-	                        public void onModifierStarted(final IModifier<IEntity> pModifier, final IEntity pItem) {  
-	                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
-	                                @Override  
-	                                public void run() {  
-	                                    Toast.makeText(PhysicsBall.this, "Sequence started.", Toast.LENGTH_SHORT).show();  
-	                                }  
-	                            });  
-	                        }  
-	  
-	                        @Override  
-	                        public void onModifierFinished(final IModifier<IEntity> pEntityModifier, final IEntity pEntity) {  
-	                            PhysicsBall.this.runOnUiThread(new Runnable() {  
-	                                @Override  
-	                                public void run() {  
-	                                    Toast.makeText(PhysicsBall.this, "Sequence finished.", Toast.LENGTH_SHORT).show();  
-	                                }  
-	                            });  
-	                        }  
-	                    },  
-	                    2,  
-	                    //循环的监听，通知每次循环的开始和结束  
-	                    new ILoopEntityModifierListener() {  
-	                        @Override  
-	                        public void onLoopStarted(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
-	                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
-	                                @Override  
-	                                public void run() {  
-	                                    Toast.makeText(PhysicsBall.this, "Loop: '" + (pLoop + 1) + "' of '" + pLoopCount + "' started.", Toast.LENGTH_SHORT).show();  
-	                                }  
-	                            });  
-	                        }  
-	  
-	                        @Override  
-	                        public void onLoopFinished(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
-	                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
-	                                @Override  
-	                                public void run() {  
-	                                    Toast.makeText(PhysicsBall.this, "Loop: '" + (pLoop + 1) + "' of '" + pLoopCount + "' finished.", Toast.LENGTH_SHORT).show();  
-	                                }  
-	                            });  
-	                        }  
-	                    },  
-	                    //循环Modifier中组合的Modifier，先按顺序执行  
-	                    new SequenceEntityModifier(  
-	                            new AlphaModifier(2, 1, 0),  
-	                            new AlphaModifier(1, 0, 1),  
-	                            new ScaleModifier(2, 1, 0.5f),  
-	                            new DelayModifier(0.5f),  
-	                            //并行执行  
-	                            new ParallelEntityModifier(  
-	                                    new ScaleModifier(3, 0.5f, 5),  
-	                                    new RotationByModifier(3, 90)  
-	                            ),  
-	                            new ParallelEntityModifier(  
-	                                    new ScaleModifier(3, 5, 1),  
-	                                    new RotationModifier(3, 180, 0)  
-	                            )  
-	                    )  
-	            );
+					@Override
+					public void onModifierFinished(
+							final IModifier<IEntity> pEntityModifier,
+							final IEntity pEntity) {
+						PhysicsBall.this.runOnUiThread(new Runnable() {
+							@Override
+							public void run() {
+								Toast.makeText(PhysicsBall.this,
+										"Sequence finished.",
+										Toast.LENGTH_SHORT).show();
+							}
+						});
+					}
+				}, 2,
+				// 循环的监听，通知每次循环的开始和结束
+				new ILoopEntityModifierListener() {
+					@Override
+					public void onLoopStarted(
+							final LoopModifier<IEntity> pLoopModifier,
+							final int pLoop, final int pLoopCount) {
+						PhysicsBall.this.runOnUiThread(new Runnable() {
+							@Override
+							public void run() {
+								Toast.makeText(
+										PhysicsBall.this,
+										"Loop: '" + (pLoop + 1) + "' of '"
+												+ pLoopCount + "' started.",
+										Toast.LENGTH_SHORT).show();
+							}
+						});
+					}
+
+					@Override
+					public void onLoopFinished(
+							final LoopModifier<IEntity> pLoopModifier,
+							final int pLoop, final int pLoopCount) {
+						PhysicsBall.this.runOnUiThread(new Runnable() {
+							@Override
+							public void run() {
+								Toast.makeText(
+										PhysicsBall.this,
+										"Loop: '" + (pLoop + 1) + "' of '"
+												+ pLoopCount + "' finished.",
+										Toast.LENGTH_SHORT).show();
+							}
+						});
+					}
+				},
+				// 循环Modifier中组合的Modifier，先按顺序执行
+				new SequenceEntityModifier(new AlphaModifier(2, 1, 0),
+						new AlphaModifier(1, 0, 1), new ScaleModifier(2, 1,
+								0.5f), new DelayModifier(0.5f),
+						// 并行执行
+						new ParallelEntityModifier(
+								new ScaleModifier(3, 0.5f, 5),
+								new RotationByModifier(3, 90)),
+						new ParallelEntityModifier(new ScaleModifier(3, 5, 1),
+								new RotationModifier(3, 180, 0))));
 	}
 
 	private void moveNail() {
 		int seed = (int) Math.round(Math.random() * 4);
-		float x,y;
+		float x, y;
 		switch (seed % 4) {
 		case 0:
 			// move nail to roof
 			x = ((float) Math.random()) * CAMERA_WIDTH;
-			nail.setPosition(x , 0);
+			nail.setPosition(x, 0);
 			nail.setRotation(0);
-			Log.i("nail", String.valueOf(x)+", 0");
+			Log.i("nail", String.valueOf(x) + ", 0");
 			break;
 		case 1:
 			// move nail to left
 			y = ((float) Math.random() * CAMERA_HEIGHT);
 			nail.setPosition(10, y);
 			nail.setRotation(270f);
-			Log.i("nail", "10, "+String.valueOf(y));
+			Log.i("nail", "10, " + String.valueOf(y));
 			break;
 		case 2:
 			// move nail to right
 			y = ((float) Math.random() * CAMERA_HEIGHT);
 			nail.setPosition(CAMERA_WIDTH - 30, y);
 			nail.setRotation(90f);
-			Log.i("nail", String.valueOf(CAMERA_WIDTH -30)+", "+String.valueOf(y));
+			Log.i("nail",
+					String.valueOf(CAMERA_WIDTH - 30) + ", "
+							+ String.valueOf(y));
 			break;
 		case 3:
 			x = ((float) Math.random()) * CAMERA_WIDTH;
 			nail.setPosition(x, CAMERA_HEIGHT - 64);
 			nail.setRotation(180f);
-			Log.i("nail", String.valueOf(x)+", "+String.valueOf(CAMERA_HEIGHT - 64));
+			Log.i("nail",
+					String.valueOf(x) + ", "
+							+ String.valueOf(CAMERA_HEIGHT - 64));
 		}
 	}
 
-	private void removeBall() {
-		if(ball != null){
-			displayBoom(ball.getX(),ball.getY());
+	private void removeBall(boolean ifPlayBoom) {
+		if (ball != null) {
+			if (ifPlayBoom) {
+				displayBoom(ball.getX(), ball.getY());
+			}
 			final PhysicsConnector facePhysicsConnector = mPhysicsWorld
-					.getPhysicsConnectorManager().findPhysicsConnectorByShape(ball);
+					.getPhysicsConnectorManager().findPhysicsConnectorByShape(
+							ball);
 
 			mPhysicsWorld.unregisterPhysicsConnector(facePhysicsConnector);
 			mPhysicsWorld.destroyBody(facePhysicsConnector.getBody());
 
 			mScene.getChildByIndex(LAYER_SPRITE).detachChild(ball);
 			ball = null;
-			
+
 			System.gc();
 		}
-		
+
 	}
 
 	private void addBall() {
 		// 创建小球
-		float x = ((float) Math.random()) * CAMERA_WIDTH * 4/6 +50;
+		float x = ((float) Math.random()) * CAMERA_WIDTH * 4 / 6 + 50;
 		float y = ((float) Math.random()) * 100;
 		ball = new AnimatedSprite(x, y, this.mBallTextureRegion,
 				this.getVertexBufferObjectManager());
@@ -732,187 +762,241 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(ball,
 				ballBody, true, true));
 		this.mScene.getChildByIndex(LAYER_SPRITE).attachChild(ball);
-		Log.i("ball", String.valueOf(x)+", "+String.valueOf(y));
+		Log.i("ball", String.valueOf(x) + ", " + String.valueOf(y));
 	}
 
 	private void displayBoom(float x, float y) {
-		final AnimatedSprite boom = new AnimatedSprite(x, y-160, this.mBoomTextureRegion,
-				this.getVertexBufferObjectManager());
-		if(soundEnabled){
+		final AnimatedSprite boom = new AnimatedSprite(x, y - 160,
+				this.mBoomTextureRegion, this.getVertexBufferObjectManager());
+		if (soundEnabled) {
 			boomSound.play();
 		}
-		boom.animate(50, false, new  IAnimationListener(){
+		boom.animate(50, false, new IAnimationListener() {
 
 			@Override
 			public void onAnimationStarted(AnimatedSprite pAnimatedSprite,
 					int pInitialLoopCount) {
 				// TODO Auto-generated method stub
-				
+
 			}
 
 			@Override
 			public void onAnimationFrameChanged(AnimatedSprite pAnimatedSprite,
 					int pOldFrameIndex, int pNewFrameIndex) {
 				// TODO Auto-generated method stub
-				
+
 			}
 
 			@Override
 			public void onAnimationLoopFinished(AnimatedSprite pAnimatedSprite,
 					int pRemainingLoopCount, int pInitialLoopCount) {
 				// TODO Auto-generated method stub
-				
+
 			}
 
 			@Override
 			public void onAnimationFinished(AnimatedSprite pAnimatedSprite) {
 				// TODO Auto-generated method stub
-				runOnUpdateThread(new Runnable(){
+				runOnUpdateThread(new Runnable() {
 
 					@Override
 					public void run() {
 						// TODO Auto-generated method stub
-						mScene.getChildByIndex(LAYER_BACKGROUND).detachChild(boom);
+						mScene.getChildByIndex(LAYER_BACKGROUND).detachChild(
+								boom);
 						System.gc();
 					}
-					
+
 				});
 			}
-			
+
 		});
 		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(boom);
 	}
-	
-	private ArrayList<Position> generateCoinPos(){
-		ArrayList<Position> positions=new ArrayList<Position>();
-		for (int i=0;i<COIN_NUMBER;i++){
-			int xx=(int) Math.round( Math.random()*CAMERA_WIDTH);
-			int yy=(int) Math.round( Math.random()*(CAMERA_HEIGHT-100));
-			Position position=new Position(xx, yy);
+
+	private ArrayList<Position> generateCoinPos() {
+		ArrayList<Position> positions = new ArrayList<Position>();
+		for (int i = 0; i < COIN_NUMBER; i++) {
+			int xx = (int) Math.round(Math.random() * CAMERA_WIDTH);
+			int yy = (int) Math.round(Math.random() * (CAMERA_HEIGHT - 100));
+			Position position = new Position(xx, yy);
 			positions.add(position);
 		}
 		return positions;
 	}
 
 	private void onGameStart() {
+		this.mScore = 0;
+		this.EndingTimer = 2f;
+		this.mScoreText.setText("Score: 0");
+		this.mTimerText.setText("Time: 0s");
+		this.mScene.registerUpdateHandler(collideHandler);
 		this.mGameRunning = true;
-		if(this.soundEnabled && !this.mBackgroundMusic.isPlaying()){
+		if (this.soundEnabled && !this.mBackgroundMusic.isPlaying()) {
 			this.mBackgroundMusic.play();
 		}
 		this.addBall();
 	}
-	
+
 	private void onGameOver() {
-		// this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mGameOverText);
 		this.ballBody.setLinearVelocity(0, 0);
 		this.mGameRunning = false;
-		
-		if(this.soundEnabled && this.mBackgroundMusic.isPlaying()){
+
+		if (this.soundEnabled && this.mBackgroundMusic.isPlaying()) {
 			this.mBackgroundMusic.stop();
+			this.gameOverSound.play();
 		}
-		
-		if(ball != null){
-			removeBall();
+
+		if (ball != null) {
+			removeBall(false);
+		}
+
+		if (this.mScore > this.bestScore) {
+			Constants.getInstance(this).setHighScore(mScore);
 		}
 		showOptions();
 	}
-	
-	private void showOptions(){
-		float y = CAMERA_HEIGHT * 5 / 10;
-		Text result = new Text(CAMERA_WIDTH * 6 / 10, y, this.mFont,
-				"Score: "+mScore, ("Score: "+mScore).length(),
+
+	private void showOptions() {
+		float width = 320;
+		float height = 250;
+		final Rectangle rect = new Rectangle(0, 0, width, height,
 				this.getVertexBufferObjectManager());
+		rect.setColor(0.5f, 0.5f, 0.5f);
+		rect.setAlpha(0.8f);
+		float y = CAMERA_HEIGHT * 3 / 10;
+		float x = (CAMERA_WIDTH - rect.getWidth()) / 2;
+		rect.registerEntityModifier(new MoveModifier(3, x, x, 0, y,
+				EaseBounceOut.getInstance()));
+
+		// 显示本局分数以及最高分的文本
+		String content = "Score: " + mScore + "\nBest: " + this.bestScore;
+		final Text result = new Text(0, 0, this.mFont, content, content.length(),
+				this.getVertexBufferObjectManager());
+		result.setHorizontalAlign(HorizontalAlign.CENTER);
+		result.setWidth(width);
 		result.setBlendFunction(GLES20.GL_SRC_ALPHA,
 				GLES20.GL_ONE_MINUS_SRC_ALPHA);
-		result.registerEntityModifier(new MoveModifier(5, CAMERA_WIDTH - result.getWidth(), CAMERA_WIDTH - result.getWidth(), 0, y, EaseBounceOut.getInstance()));
-		mScene.getChildByIndex(LAYER_SCORE).attachChild(result);
+
+		// 选项按钮
+		final ButtonSprite replyButton = new ButtonSprite(70f, height
+				- result.getHeight(), this.mReplayTextureRegion,
+				this.getVertexBufferObjectManager());
+		replyButton.setOnClickListener(new OnClickListener() {
+					@Override
+					public void onClick(ButtonSprite pButtonSprite,
+							float pTouchAreaLocalX, float pTouchAreaLocalY) {
+						// TODO Auto-generated method stub
+						runOnUpdateThread(new Runnable(){
+							
+							@Override
+							public void run() {
+								// TODO Auto-generated method stub
+								rect.detachChild(result);
+								rect.detachChild(replyButton);
+								mScene.unregisterTouchArea(replyButton);
+								mScene.getChildByIndex(LAYER_SCORE).detachChild(rect);
+								Log.i("Click", String.valueOf(rect.detachSelf()));
+							}
+						});
+						System.gc();
+						onGameStart();
+					}
+
+				});
+		rect.attachChild(result);
+		rect.attachChild(replyButton);
+		mScene.registerTouchArea(replyButton);
+		mScene.getChildByIndex(LAYER_SCORE).attachChild(rect);
 	}
 
-	
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================
-	
+
 	public class GainCoinHandler implements IUpdateHandler {
 		AnimatedSprite mCoin;
 
-		public GainCoinHandler(AnimatedSprite coin){
-			mCoin=coin;
+		public GainCoinHandler(AnimatedSprite coin) {
+			mCoin = coin;
 		}
-		
+
 		@Override
 		public void onUpdate(float pSecondsElapsed) {
-			if (mCoin.collidesWith(ball)){
+			if (mCoin.collidesWith(ball)) {
 				if (soundEnabled) {
 					mCoinSound.play();
 				}
-				mCoin.registerEntityModifier(entityModifier);//这个变换几乎是没效果的
+				mCoin.registerEntityModifier(entityModifier);// 这个变换几乎是没效果的
 				mScene.unregisterTouchArea(mCoin);
-				//mScene.getChildByIndex(LAYER_SPRITE).detachChild(coin);
+				// mScene.getChildByIndex(LAYER_SPRITE).detachChild(coin);
 				runOnUpdateThread(new Runnable() {
 					@Override
 					public void run() {
 						mCoin.detachSelf();
-					}});
-				Text mText= new Text(mCoin.getX(), mCoin.getY()-10, mFont, "+5",
-						new TextOptions(HorizontalAlign.CENTER),
+					}
+				});
+				Text mText = new Text(mCoin.getX(), mCoin.getY() - 10, mFont,
+						"+5", new TextOptions(HorizontalAlign.CENTER),
 						getVertexBufferObjectManager());
 				mScene.getChildByIndex(LAYER_SCORE).attachChild(mText);
-				LoopEntityModifier textModifier =  
-			            new LoopEntityModifier(  
-			                    //EntityModifier的监听，通知LoopEntityModifier的开始和结束  
-			            		null,1,  
-			                    //循环的监听，通知每次循环的开始和结束  
-			                    new ILoopEntityModifierListener() {  
-			                        @Override  
-			                        public void onLoopStarted(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
-			                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
-			                                @Override  
-			                                public void run() {  
-			                                    
-			                                }  
-			                            });  
-			                        }  
-			  
-			                        @Override  
-			                        public void onLoopFinished(final LoopModifier<IEntity> pLoopModifier, final int pLoop, final int pLoopCount) {  
-			                        	PhysicsBall.this.runOnUiThread(new Runnable() {  
-			                                @Override  
-			                                public void run() {  
-			                                   
-			                                }  
-			                            });  
-			                        }  
-			                    },  
-			                    //循环Modifier中组合的Modifier，先按顺序执行  
-			                    new SequenceEntityModifier(  
-//			                          new RotationModifier(1, 0, 90),  
-			                    		new ParallelEntityModifier(new AlphaModifier(5, 1, 0),  
-			                    				new ScaleModifier(5, 1, 0.5f)),  
-			                            new DelayModifier(2)  
-			                            //并行执行  
-//			                            new ParallelEntityModifier(  
-//			                                    new ScaleModifier(3, 0.5f, 5),  
-//			                                    new RotationByModifier(3, 90)  
-//			                            ),  
-//			                            new ParallelEntityModifier(  
-//			                                    new ScaleModifier(3, 5, 1),  
-//			                                    new RotationModifier(3, 180, 0)  
-//			                            )  
-			                    )  
-			            );
+				LoopEntityModifier textModifier = new LoopEntityModifier(
+				// EntityModifier的监听，通知LoopEntityModifier的开始和结束
+						null, 1,
+						// 循环的监听，通知每次循环的开始和结束
+						new ILoopEntityModifierListener() {
+							@Override
+							public void onLoopStarted(
+									final LoopModifier<IEntity> pLoopModifier,
+									final int pLoop, final int pLoopCount) {
+								PhysicsBall.this.runOnUiThread(new Runnable() {
+									@Override
+									public void run() {
+
+									}
+								});
+							}
+
+							@Override
+							public void onLoopFinished(
+									final LoopModifier<IEntity> pLoopModifier,
+									final int pLoop, final int pLoopCount) {
+								PhysicsBall.this.runOnUiThread(new Runnable() {
+									@Override
+									public void run() {
+
+									}
+								});
+							}
+						},
+						// 循环Modifier中组合的Modifier，先按顺序执行
+						new SequenceEntityModifier(
+						// new RotationModifier(1, 0, 90),
+								new ParallelEntityModifier(new AlphaModifier(5,
+										1, 0), new ScaleModifier(5, 1, 0.5f)),
+								new DelayModifier(2)
+						// 并行执行
+						// new ParallelEntityModifier(
+						// new ScaleModifier(3, 0.5f, 5),
+						// new RotationByModifier(3, 90)
+						// ),
+						// new ParallelEntityModifier(
+						// new ScaleModifier(3, 5, 1),
+						// new RotationModifier(3, 180, 0)
+						// )
+						));
 				mText.registerEntityModifier(textModifier);
-				mScore+=5;
+				mScore += 5;
 				mScoreText.setText("Score: " + mScore);
 				System.gc();
-				
+
 			}
 		}
 
 		@Override
 		public void reset() {
 			// TODO Auto-generated method stub
-			
+
 		}
 	}
 
