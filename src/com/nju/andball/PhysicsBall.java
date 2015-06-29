@@ -64,6 +64,7 @@ import org.andengine.util.modifier.LoopModifier;
 import org.andengine.util.progress.IProgressListener;
 
 import android.app.ProgressDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.hardware.SensorManager;
 import android.opengl.GLES20;
@@ -125,6 +126,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 	private Sprite wood;
 	private Sprite nail;
 	private AnimatedSprite ball;
+	private ArrayList<AnimatedSprite> fires;
 	private Body woodBody;
 	private Body ballBody;
 	private int mScore = 0;
@@ -193,7 +195,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		FontFactory.setAssetBasePath("fonts/");
 		this.mFont = FontFactory.createFromAsset(this.getFontManager(),
 				this.getTextureManager(), 512, 512, TextureOptions.BILINEAR,
-				this.getAssets(), "Plok.ttf", 32, true, Color.WHITE);
+				this.getAssets(), "DeadSpaceTitleFont.ttf", 32, true, Color.WHITE);
 		this.mFont.load();
 		pProgressListener.onProgressChanged(10);
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("sprite/");
@@ -205,7 +207,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 				.createFromAsset(this.mBitmapTextureAtlas, this, "wood.png", 0, 0); // 128x18
 		this.mNailTextureRegion = BitmapTextureAtlasTextureRegionFactory
 				.createFromAsset(this.mBitmapTextureAtlas, this,
-						"nail_down.png", 128, 0); // 26x59
+						"dragon.png", 280, 0); // 26x59 
 		this.mCoinTextureRegion =BitmapTextureAtlasTextureRegionFactory
 				.createTiledFromAsset(this.mBitmapTextureAtlas, this, 
 						"smallCoin.png", 154, 0, 4, 2);	// 126x65
@@ -382,10 +384,12 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(nail);
 
 		// 创建火焰
+		fires = new ArrayList<AnimatedSprite>();
 		for(int i=0;i<800;i+=100){
 			final AnimatedSprite fire = new AnimatedSprite(20+i, CAMERA_HEIGHT - 64,
 					this.mFireTextureRegion, this.getVertexBufferObjectManager());
 			fire.animate(100);
+			fires.add(fire);
 			this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(fire);
 		}
 		
@@ -433,6 +437,16 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 					mTimerText.setText("Time: "
 							+ String.valueOf(Math.round(EndingTimer)) + "s");
 				}
+				
+				for (AnimatedSprite fire:fires){
+					if(fire.collidesWith(ball)){
+						onGameOver();
+					}
+				}
+				
+				if (ground.collidesWith(ball)){
+					 onGameOver();
+				}
 
 				if (left.collidesWith(wood)) {
 					woodBody.setLinearVelocity(2, 0);
@@ -465,9 +479,6 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 
 				}
 
-				// if(ground.collidesWith(face)){
-				// onGameOver();
-				// }
 			}
 		});
 	}
@@ -782,6 +793,10 @@ public class PhysicsBall extends SimpleAsyncGameActivity implements
 		// this.mScene.getChildByIndex(LAYER_SCORE).attachChild(this.mGameOverText);
 		this.ballBody.setLinearVelocity(0, 0);
 		this.mGameRunning = false;
+		
+		Intent intent = new Intent(this,Menu.class);
+		startActivity(intent);
+		
 	}
 
 	

@@ -3,6 +3,9 @@ package com.nju.andball;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.andengine.audio.music.Music;
+import org.andengine.audio.music.MusicFactory;
+import org.andengine.audio.sound.SoundFactory;
 import org.andengine.engine.Engine;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.options.EngineOptions;
@@ -27,9 +30,13 @@ import org.andengine.entity.scene.Scene;
 import org.andengine.entity.sprite.ButtonSprite;
 import org.andengine.entity.sprite.ButtonSprite.OnClickListener;
 import org.andengine.entity.sprite.Sprite;
+import org.andengine.entity.text.Text;
 import org.andengine.entity.util.FPSLogger;
 import org.andengine.input.touch.TouchEvent;
+import org.andengine.opengl.font.Font;
+import org.andengine.opengl.font.FontFactory;
 import org.andengine.opengl.texture.ITexture;
+import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.andengine.opengl.texture.atlas.bitmap.BuildableBitmapTextureAtlas;
@@ -46,13 +53,18 @@ import org.andengine.ui.activity.SimpleBaseGameActivity;
 import org.andengine.util.adt.io.in.IInputStreamOpener;
 import org.andengine.util.debug.Debug;
 import org.andengine.util.modifier.IModifier;
+import org.andengine.util.modifier.ease.EaseBackInOut;
 import org.andengine.util.modifier.ease.EaseBounceIn;
+import org.andengine.util.modifier.ease.EaseBounceInOut;
+import org.andengine.util.modifier.ease.EaseBounceOut;
 import org.andengine.util.modifier.ease.EaseQuadIn;
 import org.andengine.util.modifier.ease.EaseQuadInOut;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.graphics.Color;
 import android.hardware.Camera.Face;
+import android.opengl.GLES20;
 import android.widget.Toast;
 
 /**
@@ -102,6 +114,10 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	private ButtonSprite face2;
 	private ButtonSprite face3;
 	private ButtonSprite face4;
+	private Text bestScores;
+	private Font mFont;
+	private Music mBackgroundMusic;
+	private boolean soundEnabled;
 	
 	private static final int LAYER_COUNT = 4;
 
@@ -115,8 +131,16 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 	public EngineOptions onCreateEngineOptions() {
 		final Camera camera = new Camera(0, 0, Menu.CAMERA_WIDTH, Menu.CAMERA_HEIGHT);
 
-		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,  new RatioResolutionPolicy(
+		EngineOptions engineOptions = new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,  new RatioResolutionPolicy(
 				CAMERA_WIDTH, CAMERA_HEIGHT), camera);
+		if(Constants.getInstance(this).getSoundEnabled()){
+			engineOptions.getAudioOptions().setNeedsSound(true);
+			engineOptions.getAudioOptions().setNeedsMusic(true);
+			this.soundEnabled = true;
+		}else{
+			this.soundEnabled = false;
+		}
+		return engineOptions;
 	}
 
 	@Override
@@ -262,6 +286,24 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		} catch (TextureAtlasBuilderException e) {
 			Debug.e(e);
 		}
+		
+		FontFactory.setAssetBasePath("fonts/");
+		this.mFont = FontFactory.createFromAsset(this.getFontManager(),
+				this.getTextureManager(), 512, 512, TextureOptions.BILINEAR,
+				this.getAssets(), "DeadSpaceTitleFont.ttf", 32, true, Color.WHITE);
+		this.mFont.load();
+		if(this.soundEnabled){
+			
+
+			MusicFactory.setAssetBasePath("music/");
+			try {
+				this.mBackgroundMusic = MusicFactory.createMusicFromAsset(
+						this.mEngine.getMusicManager(), this, "quitVillage.mid");
+				this.mBackgroundMusic.setLooping(true);
+			} catch (final IOException e) {
+				Debug.e(e);
+			}
+		}
 	}
 
 	@Override
@@ -392,13 +434,21 @@ public class Menu extends SimpleBaseGameActivity implements IOnSceneTouchListene
 		scene.getChildByIndex(LAYER_BACKGROUND).attachChild(face);
 		
 		
-		
-		
 		scene.setTouchAreaBindingOnActionDownEnabled(true);
 		
 		/* TouchListener */
 		//scene.setOnSceneTouchListener(this);
-
+		
+		//初始化文本
+		float y = CAMERA_HEIGHT * 9 / 10;
+		this.bestScores = new Text(CAMERA_WIDTH * 6 / 10, y, this.mFont,
+				"BestScore: 0", "BestScore: 50000".length(),
+				this.getVertexBufferObjectManager());
+		this.bestScores.setBlendFunction(GLES20.GL_SRC_ALPHA,
+				GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		this.bestScores.registerEntityModifier(new MoveModifier(5, CAMERA_WIDTH - bestScores.getWidth(), CAMERA_WIDTH - bestScores.getWidth(), 0, y, EaseBounceOut.getInstance()));
+		scene.getChildByIndex(LAYER_LOGO).attachChild(bestScores);
+		
 		return scene;
 	}
 
