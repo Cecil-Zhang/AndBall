@@ -512,7 +512,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 							final float pValueX, final float pValueY) {
 						if (mGameRunning) {
 							final Vector2 velocity = Vector2Pool.obtain(
-									pValueX * 50, 0);
+									pValueX * 35, 0);
 							woodBody.setLinearVelocity(velocity);
 							Vector2Pool.recycle(velocity);
 						}

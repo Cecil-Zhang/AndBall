@@ -143,7 +143,7 @@ public class Menu extends SimpleBaseGameActivity implements OnClickListener {
 		} else {
 			this.soundEnabled = false;
 		}
-		Toast.makeText(this, "点击悟空开始游戏", 3).show();
+		Toast.makeText(this, "点击悟空开始游戏", Toast.LENGTH_LONG).show();
 		return engineOptions;
 	}
 
@@ -578,9 +578,8 @@ public class Menu extends SimpleBaseGameActivity implements OnClickListener {
 						}
 						
 					};
-					face.registerEntityModifier(new SequenceEntityModifier(listener,
-							new RotationModifier(3, 0, 3600, EaseQuadInOut
-									.getInstance()), new DelayModifier(2)));
+					face.registerEntityModifier(new RotationModifier(3, 0, 3600, listener,EaseQuadInOut
+							.getInstance()));
 					
 				}
 			}
