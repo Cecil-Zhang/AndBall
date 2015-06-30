@@ -164,10 +164,10 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 		engineOptions.getTouchOptions().setNeedsMultiTouch(true);
 		if (MultiTouch.isSupported(this)) {
 			if (MultiTouch.isSupportedDistinct(this)) {
-				Toast.makeText(
-						this,
-						"MultiTouch detected --> Both controls will work properly!",
-						Toast.LENGTH_SHORT).show();
+//				Toast.makeText(
+//						this,
+//						"MultiTouch detected --> Both controls will work properly!",
+//						Toast.LENGTH_SHORT).show();
 			} else {
 				this.mPlaceOnScreenControlsAtDifferentVerticalLocations = true;
 				Toast.makeText(
@@ -345,7 +345,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 	@Override
 	public void onResumeGame() {
 		super.onResumeGame();
-		if(this.mBackgroundMusic.isPlaying()){
+		if(this.mBackgroundMusic!=null && this.mBackgroundMusic.isPlaying()){
 			this.mBackgroundMusic.pause();
 		}
 	}
@@ -360,6 +360,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 
 	@Override
 	public void onBackPressed() {
+		Toast.makeText(this, "连按两下退出游戏", Toast.LENGTH_LONG).show();;
 		Intent intent = new Intent(this, Menu.class);
 		startActivity(intent);
 		this.finish();
@@ -409,7 +410,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 		fires = new ArrayList<AnimatedSprite>();
 		for (int i = 0; i < 800; i += 100) {
 			final AnimatedSprite fire = new AnimatedSprite(20 + i,
-					CAMERA_HEIGHT - 64, this.mFireTextureRegion,
+					CAMERA_HEIGHT - 48, this.mFireTextureRegion,
 					this.getVertexBufferObjectManager());
 			fire.animate(100);
 			fires.add(fire);
@@ -853,7 +854,7 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 		}
 
 		if (ball != null) {
-			removeBall(false);
+			removeBall(true);
 		}
 
 		if (this.mScore > this.bestScore) {
@@ -1007,19 +1008,9 @@ public class PhysicsBall extends SimpleAsyncGameActivity {
 						},
 						// 循环Modifier中组合的Modifier，先按顺序执行
 						new SequenceEntityModifier(
-						// new RotationModifier(1, 0, 90),
 								new ParallelEntityModifier(new AlphaModifier(5,
 										1, 0), new ScaleModifier(5, 1, 0.5f)),
 								new DelayModifier(2)
-						// 并行执行
-						// new ParallelEntityModifier(
-						// new ScaleModifier(3, 0.5f, 5),
-						// new RotationByModifier(3, 90)
-						// ),
-						// new ParallelEntityModifier(
-						// new ScaleModifier(3, 5, 1),
-						// new RotationModifier(3, 180, 0)
-						// )
 						));
 				mText.registerEntityModifier(textModifier);
 				mScore += 5;
